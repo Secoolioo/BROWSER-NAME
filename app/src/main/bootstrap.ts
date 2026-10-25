@@ -65,7 +65,6 @@ const blankUrl = 'about:blank';
  * @param layout - Where the bundled files are.
  */
 export async function bootstrap(layout: BundleLayout): Promise<void> {
-  const startedAt = performance.now();
   registerAppScheme();
   app.setName(brand.productName);
   app.userAgentFallback = cleanUserAgent(app.userAgentFallback);
@@ -172,7 +171,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   lifecycle.advance('ready');
   const smokeReport = app.commandLine.getSwitchValue('smoke-test');
   if (smokeReport !== '') {
-    runSmokeTest(first, smokeReport, startedAt);
+    runSmokeTest(first, smokeReport, app.commandLine.hasSwitch('smoke-test-keep-running'));
   }
   logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });
 

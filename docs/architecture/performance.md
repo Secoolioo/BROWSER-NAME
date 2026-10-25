@@ -1,6 +1,6 @@
 # Performance
 
-> **Status:** approved design. Nothing described here is implemented or released yet. Structure and decisions are written in the present tense; runtime behavior is described as what the system will do.
+> **Status:** partly implemented. The harness checks the start-up, idle memory, idle CPU, bundle and size budgets on every pull request. See [implementation status](#implementation-status).
 
 Performance comes first among Lampo's [principles](principles.md). Budgets are measured in CI, and every regression fails the build. The decision record is ADR 0017 (performance budgets in CI); see the [decision record index](../adr/README.md).
 
@@ -132,3 +132,17 @@ Measurement history is never committed to the repository:
 An A/A run once a week compares identical builds. It measures the runner variance and calibrates the thresholds.
 
 The performance harness is designed to run on every pull request on all three operating systems; on macOS, the limited runners allow only relative values. See [testing](testing.md) for the overall test strategy.
+
+## Implementation status
+
+The harness (`tools/perf/run.ts`) runs in the `perf` job of every pull request on `ubuntu-24.04`, `windows-2025` and `macos-15` and fails the build when a budget is exceeded. It checks:
+
+- **Warm start:** n = 20 after two warm-up rounds, median against the bare reference and the ceiling. The interactive mark is the self-test report, written once the shell has loaded and rendered.
+- **Memory, idle:** n = 10 after 15 s, median, with the metric per operating system above. On Linux, the harness reads the memory maps of sandboxed processes through `sudo`.
+- **CPU, idle:** one 60-second window per variant, after 15 s.
+- **UI JavaScript, preloads and the main start-up path:** sizes of the built bundles.
+- **Unpacked size:** the unpacked package against the Electron distribution.
+
+The bare reference (`app/tests/perf/bare/`) runs in a copy of the Electron distribution as its app folder, with the fuses of a shipped package except the two asar fuses. Each group of measurements that fails is measured once more before the job fails. Results are kept as the `perf-<os>` workflow artifact.
+
+Not implemented yet: the comparison with the `main` build and its Mann-Whitney test, the cold start, the tab, workspace and 20-tab budgets, the installer budgets, the other start-up marks, the weekly A/A run and the `perf.json` release asset.
