@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RingBufferLogSink, SinkLogger } from '../../kernel/logging/logger.ts';
 import { ManualClock } from '../../kernel/time/clock.ts';
+import { BootGuard, type BootState, type BootStateStore } from '../updates/boot-guard.ts';
 import {
   FeedError,
   SignedFeed,
@@ -92,6 +93,12 @@ describe('selectRelease', () => {
   it('picks the newest release of the channel; beta also receives stable', () => {
     expect(selectRelease(index(), query())).toBe('0.1.0');
     expect(selectRelease(index(), query({ channel: 'beta' }))).toBe('0.2.0-beta.1');
+  });
+
+  it('skips versions that failed to start here', () => {
+    expect(selectRelease(index(), query({ channel: 'beta', blocked: ['0.2.0-beta.1'] }))).toBe(
+      '0.1.0',
+    );
   });
 
   it('honors the version prefix and never downgrades', () => {
@@ -197,6 +204,12 @@ describe('SignedFeed', () => {
     expect(await failure(feed)).toBe('invalid');
     fetcher.put('updates/v1/index.json', { ...index(), sequence: -1 });
     expect(await failure(feed)).toBe('invalid');
+  });
+
+  it('loads the verified manifest of any version', async () => {
+    const { feed } = setup();
+    expect((await feed.manifest('0.1.0')).artifacts['linux-x64-appimage']?.size).toBe(10);
+    await expect(feed.manifest('0.0.9')).rejects.toThrow(FeedError);
   });
 
   it('rejects manifests that do not match or have no file for this platform', async () => {
@@ -330,6 +343,22 @@ describe('UpdateService', () => {
     service.dispose();
   });
 
+  it('prepares the rollback after a download and before the installation', async () => {
+    const calls: string[] = [];
+    const { service } = make({
+      hooks: {
+        afterDownload: (version) => {
+          calls.push(`after ${version}`);
+          return Promise.reject(new Error('offline'));
+        },
+        beforeInstall: (version) => calls.push(`before ${version}`),
+      },
+    });
+    expect(await service.check()).toEqual({ kind: 'ready', version: '0.2.0' });
+    expect(service.installOnExit()).toBe(true);
+    expect(calls).toEqual(['after 0.2.0', 'before 0.2.0']);
+  });
+
   it('only checks on request in manual mode and shares concurrent checks', async () => {
     const { service, engine, clock } = make({ mode: 'manual' });
     service.start();
@@ -350,5 +379,55 @@ describe('update policies', () => {
       'automatic',
     ]);
     expect(updatePolicies.map((p) => p.name)).toContain('UpdateURL');
+  });
+});
+
+class MemoryBootState implements BootStateStore {
+  state: BootState = { blocked: [] };
+  read(): BootState {
+    return this.state;
+  }
+  write(state: BootState): void {
+    this.state = state;
+  }
+}
+
+describe('BootGuard', () => {
+  it('lets an update prove itself and forgets it once healthy', () => {
+    const store = new MemoryBootState();
+    const guard = new BootGuard(store);
+    expect(guard.beginBoot('0.1.0')).toEqual({ kind: 'normal' });
+    guard.prepareUpdate('0.1.0', '0.2.0');
+    expect(store.state.pending).toEqual({ version: '0.2.0', previous: '0.1.0', attempts: 0 });
+    expect(guard.beginBoot('0.2.0')).toEqual({ kind: 'trial', attempt: 1 });
+    guard.markHealthy('0.1.0');
+    expect(store.state.pending?.attempts).toBe(1);
+    guard.markHealthy('0.2.0');
+    expect(store.state).toEqual({ blocked: [] });
+    expect(guard.beginBoot('0.2.0')).toEqual({ kind: 'normal' });
+  });
+
+  it('rolls back after two failed starts and blocks the version', () => {
+    const store = new MemoryBootState();
+    const guard = new BootGuard(store);
+    guard.prepareUpdate('0.1.0', '0.2.0');
+    expect(guard.beginBoot('0.2.0')).toEqual({ kind: 'trial', attempt: 1 });
+    expect(guard.beginBoot('0.2.0')).toEqual({ kind: 'trial', attempt: 2 });
+    expect(guard.beginBoot('0.2.0')).toEqual({
+      kind: 'rollback',
+      failed: '0.2.0',
+      previous: '0.1.0',
+    });
+    expect(guard.blockedVersions()).toEqual(['0.2.0']);
+    expect(store.state.pending).toBeUndefined();
+    expect(guard.beginBoot('0.1.0')).toEqual({ kind: 'normal' });
+  });
+
+  it('ignores a pending update that never arrived', () => {
+    const store = new MemoryBootState();
+    const guard = new BootGuard(store);
+    guard.prepareUpdate('0.1.0', '0.2.0');
+    expect(guard.beginBoot('0.1.0')).toEqual({ kind: 'normal' });
+    expect(store.state).toEqual({ blocked: [] });
   });
 });
