@@ -53,6 +53,7 @@ interface Measurements {
 }
 
 const options = parseOptions(process.argv.slice(2));
+const profilesDir = mkdtempSync(join(tmpdir(), 'perf-profiles-'));
 
 /** The budgets, as documented in docs/architecture/performance.md. */
 const budgets = {
@@ -162,7 +163,8 @@ async function launch<T>(
   const work = mkdtempSync(join(tmpdir(), `perf-${variant.name}-`));
   const report = join(work, 'report.json');
   const args = [
-    `--user-data-dir=${join(work, 'profile')}`,
+    // Each variant keeps its profile across runs, so later starts are warm starts.
+    `--user-data-dir=${join(profilesDir, variant.name)}`,
     `--smoke-test=${report}`,
     '--smoke-test-keep-running',
   ];
@@ -488,6 +490,7 @@ async function main(): Promise<void> {
     }
   } finally {
     rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    rmSync(profilesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 }
 

@@ -46,7 +46,8 @@ export function startTree(command: string, args: readonly string[]): ChildProces
 }
 
 /**
- * Stops a process tree started with {@link startTree} and waits until its root exited.
+ * Stops a process tree started with {@link startTree}: asks it to quit, forces it after
+ * 10 seconds, and waits until its root exited.
  * @param child - The root process.
  */
 export async function stopTree(child: ChildProcess): Promise<void> {
@@ -54,7 +55,22 @@ export async function stopTree(child: ChildProcess): Promise<void> {
     if (child.exitCode !== null || child.signalCode !== null) done();
     else child.once('exit', () => done());
   });
-  if (child.pid !== undefined) {
+  if (child.pid === undefined) return;
+  // Quit the way a user would first, so caches reach the disk as in real use.
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(child.pid)], { stdio: 'ignore' });
+  } else {
+    try {
+      process.kill(child.pid, 'SIGTERM');
+    } catch {
+      // Already gone.
+    }
+  }
+  const graceful = await Promise.race([
+    exited.then(() => true),
+    new Promise<boolean>((done) => setTimeout(() => done(false), 10_000)),
+  ]);
+  if (!graceful) {
     if (process.platform === 'win32') {
       spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
     } else {
@@ -64,8 +80,8 @@ export async function stopTree(child: ChildProcess): Promise<void> {
         // The group is already gone.
       }
     }
+    await exited;
   }
-  await exited;
 }
 
 /**
