@@ -1,0 +1,32 @@
+name: Spike Linux repositories
+
+on:
+  push:
+    branches: ['spike/linux-repos']
+
+permissions: {}
+
+jobs:
+  repos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm createrepo-c apt-utils
+      - name: Run
+        run: bash spikes/linux-repos/run.sh
+      - name: Summarize
+        if: always()
+        run: |
+          sed 's/%/%25/g' spikes/linux-repos/out/results.txt | tr '\n' '|' | sed 's/^/::notice title=linux repos::/'
+          echo
