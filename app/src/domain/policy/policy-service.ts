@@ -130,6 +130,19 @@ export class PolicyService implements Disposable {
   }
 
   /**
+   * The value that a mandatory policy forces, typed by its definition.
+   * @param definition - The policy, as registered with this service.
+   */
+  mandatoryValue<T>(definition: PolicyDefinition<T>): T | undefined {
+    if (this.definitions.get(definition.name) !== definition) {
+      throw new Error(`Policy ${definition.name} is not registered`);
+    }
+    const value = this.mandatory.get(definition.name)?.value;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- validated against this definition when read
+    return value as T | undefined;
+  }
+
+  /**
    * The recommended default from policy, if any.
    * @param name - Policy name.
    */

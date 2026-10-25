@@ -306,6 +306,59 @@ jobs:
           path: perf.json
           retention-days: 30
 
+  updater:
+    name: updater (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build two test versions that trust a test key
+        working-directory: app
+        run: |
+          node ../tools/feed/feed.ts keygen "$RUNNER_TEMP/keys"
+          UPDATE_KEYS_DIR="$RUNNER_TEMP/keys" pnpm exec electron-vite build
+          case "$RUNNER_OS" in
+            Linux) target=(--linux AppImage --x64) ;;
+            Windows) target=(--win nsis --x64) ;;
+          esac
+          for n in 1 2; do
+            PACKAGE_DIR="$RUNNER_TEMP/v$n" pnpm exec electron-builder --config electron-builder.config.mjs \
+              --publish never "${target[@]}" -c.extraMetadata.version="0.0.1-test.$n"
+          done
+      - name: Prepare Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libfuse2t64
+          # The AppImage sandbox needs user namespaces; the packages job tests the AppArmor fix.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Update build 1 to build 2 through a local signed feed
+        run: |
+          set -- --old "$RUNNER_TEMP/v1" --new "$RUNNER_TEMP/v2" --key "$RUNNER_TEMP/keys/private.pem" \
+            --old-version 0.0.1-test.1 --new-version 0.0.1-test.2
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a node app/tests/updater/run.ts "$@"
+          else
+            node app/tests/updater/run.ts "$@"
+          fi
+
   commits:
     name: commits
     if: github.event_name == 'pull_request'
@@ -353,7 +406,7 @@ jobs:
   ci-gate:
     name: ci-gate
     if: always()
-    needs: [verify, unit, package, smoke, e2e, perf, commits, workflow-security]
+    needs: [verify, unit, package, smoke, e2e, perf, updater, commits, workflow-security]
     runs-on: ubuntu-24.04
     permissions: {}
     steps:

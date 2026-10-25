@@ -1,6 +1,6 @@
 # Update architecture
 
-> **Status:** partly implemented. Every package format is built and tested; updates are design. See [implementation status](#implementation-status).
+> **Status:** partly implemented. Signed updates work for NSIS, AppImage and macOS; rollback, the package repositories and the release pipeline are design. See [implementation status](#implementation-status).
 
 Lampo is designed to update itself on every supported platform without dialogs. A signed feed decides _what_ gets installed. Depending on the package format, electron-updater, the operating system's package manager or the IT department decides _how_ it gets installed. The decision records are ADR 0014 (update architecture with a signed feed) and ADR 0015 (Linux package repositories); see the [decision record index](../adr/README.md).
 
@@ -273,4 +273,15 @@ The updater tests are designed to use a local test feed on `127.0.0.1` with two 
 
 Every package format and architecture in the table above is built and smoke-tested on every pull request (`app/electron-builder.config.mjs`), with the versionless asset names. The packages are unsigned so far.
 
-Not implemented yet: the signed feed, the update engine with its custom provider, the installers per format, the boot guard and rollback, the package repositories, the release pipeline and code signing.
+The update path for NSIS, AppImage and macOS is implemented:
+
+- **Signed feed** (`app/src/domain/updates/feed.ts`): index and manifests are verified before they are parsed, with the rejection rules above (signature, sequence, expiry, no downgrade), the channel and the version prefix.
+- **Keys:** the public keys are read at build time from `app/build/keys/update-*.pub.pem`. A build without keys cannot verify the feed and therefore never updates. The release keys are added once the repository owner has generated them.
+- **Engine** (`app/src/platform/updates/`): the `SignedFeedProvider` for electron-updater, which loads only when the first check runs. Downloads use the blockmap delta and the SHA-512 from the signed manifest.
+- **Service** (`app/src/domain/updates/update-service.ts`): the first check 30–60 seconds after start, then every 4 hours with ±30 minutes of jitter, a retry while offline, and the installation while the browser exits after a normal quit.
+- **Policies:** `UpdatePolicy`, `TargetChannel`, `TargetVersionPrefix`, `UpdateURL` (machine-level only) and `AutoUpdateCheckPeriodMinutes`.
+- **Installation types:** MSI (a per-machine installation under Program Files), deb and rpm turn the in-app updater off. The registry marker described above replaces the path check when the MSI properties land.
+- **Feed tool** (`tools/feed/feed.ts`): builds and signs the index and the manifests from electron-builder's update information, and serves a feed locally for tests.
+- **Tests:** unit tests for versions, the feed and the service; the `updater` CI job installs build 1 on Windows (NSIS) and Linux (AppImage), checks that it refuses a tampered feed, lets it download build 2 from a valid feed through the `UpdateURL` policy, quits it and starts build 2.
+
+Not implemented yet: the boot guard and rollback, the update indicator, the "Restart to update" entry and the idle installation, the status on the About and diagnostics pages, the "What's new" note, the mirror tool, the macOS updater test, the package repositories, the release pipeline and code signing.
