@@ -1,6 +1,6 @@
 # Settings, policies and themes
 
-> **Status:** partly implemented. The settings and policy core exists; the rest of this page is design. See [implementation status](#implementation-status).
+> **Status:** partly implemented. The settings and policy core and the policy providers exist; the rest of this page is design. See [implementation status](#implementation-status).
 
 Settings, policies and themes share one idea: everything a user, an administrator or a theme author can change is declared once, as data with a schema, and everything else is derived from that declaration. The settings page, the policy templates, the JSON Schemas and the reference documentation are generated from it, never written by hand.
 
@@ -220,5 +220,6 @@ The settings and policy core is implemented and covered by unit tests:
 - **Settings** (`app/src/domain/settings/`): `defineSetting` with Valibot schemas, the resolution order from defaults to mandatory policies, workspace overrides, `inspect` with value, source and lock state, writes that a mandatory policy blocks, export and import, and stored values that fail validation are set aside instead of deleted.
 - **Policies** (`app/src/domain/policy/`): `definePolicy`, the policy service with mandatory and recommended levels, machine values before user values, sensitive policies only from machine-wide mandatory sources, DWORD values `0` and `1` read as booleans, a status for every policy, and the last known values as a fallback when every provider fails.
 - **Policy for every setting:** each setting with a `policy` attribute becomes a policy automatically.
+- **Providers** (`app/src/platform/policy/`): the Windows registry, macOS managed preferences and Linux JSON files, read synchronously without a native module, as described in [enterprise.md](enterprise.md#reading-policies). The cache of the last known values is a JSON file in the profile.
 
-Not implemented yet: the policy providers per operating system, the settings page, generated artifacts and their drift check, and themes with the theme editor.
+Not implemented yet: the settings page, generated artifacts and their drift check, and themes with the theme editor.
