@@ -114,6 +114,19 @@ describe('PolicyService', () => {
     expect(policies.getMandatory('UpdateURL')).toBeUndefined();
   });
 
+  it('accepts registry DWORD 0 and 1 for boolean policies', () => {
+    const Flag = definePolicy({ name: 'DeveloperToolsAvailability', schema: v.boolean() });
+    const provider = new FakeProvider();
+    const logger = new SinkLogger(new RingBufferLogSink(), new ManualClock(), { scope: 't' });
+    const policies = new PolicyService([Flag], [provider], logger);
+    provider.result = { values: [value('DeveloperToolsAvailability', 0)], errors: [] };
+    policies.refresh();
+    expect(policies.getMandatory('DeveloperToolsAvailability')?.value).toBe(false);
+    provider.result = { values: [value('DeveloperToolsAvailability', 3)], errors: [] };
+    policies.refresh();
+    expect(policies.statuses()[0]?.state).toBe('invalid');
+  });
+
   it('notifies only about changed policies', () => {
     const { policies, provider } = service();
     const listener = vi.fn();
