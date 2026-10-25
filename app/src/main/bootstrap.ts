@@ -41,6 +41,7 @@ import { JsonFilePolicyCache } from '../platform/policy/policy-providers.ts';
 import { createPolicyProviders } from '../platform/policy/platform-providers.ts';
 import { SearchUrlTemplate, coreSettings } from './core-settings.ts';
 import { showSandboxHelp } from './sandbox-help.ts';
+import { checkBoot } from './boot.ts';
 import { runSandboxHelpSmokeTest, runSmokeTest } from './smoke-test.ts';
 import type { UpdateService } from '../domain/updates/update-service.ts';
 
@@ -102,6 +103,12 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
 
   if (!app.requestSingleInstanceLock()) {
     app.quit();
+    return;
+  }
+  // After the lock, so a second start of a running browser is not counted as a start.
+  const boot = checkBoot(logger);
+  if (boot === undefined) {
+    app.exit(0);
     return;
   }
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(macMenu()) : null);
@@ -182,6 +189,12 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   const first = windows.open();
   marks['window'] = Math.round(performance.now());
   lifecycle.advance('ready');
+  // A start counts as healthy after 10 s with a loaded shell, or when it quits normally.
+  let shellLoaded = false;
+  first.shellContents.once('did-finish-load', () => {
+    shellLoaded = true;
+    setTimeout(() => boot.guard.markHealthy(app.getVersion()), 10_000).unref();
+  });
   const smokeReport = app.commandLine.getSwitchValue('smoke-test');
   if (smokeReport !== '') {
     runSmokeTest(first, smokeReport, {
@@ -195,7 +208,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   let updates: UpdateService | undefined;
   void import('./updates.ts')
     .then(({ createUpdateService }) => {
-      updates = createUpdateService({ policies, clock, logger, userData });
+      updates = createUpdateService({ policies, clock, logger, userData, boot });
       updates.start();
     })
     .catch((error: unknown) => logger.error('The update service failed to start', error));
@@ -218,6 +231,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     quitting = true;
     event.preventDefault();
     logger.info('Shutting down');
+    if (shellLoaded) boot.guard.markHealthy(app.getVersion());
     lifecycle.onWillShutdown((e) => {
       e.join(store.flush(), 'settings');
       const web = session.fromPartition(webPartition);

@@ -329,16 +329,18 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Build two test versions that trust a test key
+      - name: Build three test versions that trust a test key; the third fails to start
         working-directory: app
         run: |
           node ../tools/feed/feed.ts keygen "$RUNNER_TEMP/keys"
-          UPDATE_KEYS_DIR="$RUNNER_TEMP/keys" pnpm exec electron-vite build
+          export UPDATE_KEYS_DIR="$RUNNER_TEMP/keys"
           case "$RUNNER_OS" in
             Linux) target=(--linux AppImage --x64) ;;
             Windows) target=(--win nsis --x64) ;;
           esac
-          for n in 1 2; do
+          for n in 1 2 3; do
+            if [ "$n" = 3 ]; then export TEST_BOOT_FAILURE=1; fi
+            if [ "$n" != 2 ]; then pnpm exec electron-vite build; fi
             PACKAGE_DIR="$RUNNER_TEMP/v$n" pnpm exec electron-builder --config electron-builder.config.mjs \
               --publish never "${target[@]}" -c.extraMetadata.version="0.0.1-test.$n"
           done
@@ -349,10 +351,11 @@ jobs:
           sudo apt-get install -y xvfb libfuse2t64
           # The AppImage sandbox needs user namespaces; the packages job tests the AppArmor fix.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - name: Update build 1 to build 2 through a local signed feed
+      - name: Update build 1 to build 2, then roll back from build 3
         run: |
-          set -- --old "$RUNNER_TEMP/v1" --new "$RUNNER_TEMP/v2" --key "$RUNNER_TEMP/keys/private.pem" \
-            --old-version 0.0.1-test.1 --new-version 0.0.1-test.2
+          set -- --old "$RUNNER_TEMP/v1" --new "$RUNNER_TEMP/v2" --broken "$RUNNER_TEMP/v3" \
+            --old-version 0.0.1-test.1 --new-version 0.0.1-test.2 --broken-version 0.0.1-test.3 \
+            --key "$RUNNER_TEMP/keys/private.pem"
           if [ "$RUNNER_OS" = Linux ]; then
             xvfb-run -a node app/tests/updater/run.ts "$@"
           else

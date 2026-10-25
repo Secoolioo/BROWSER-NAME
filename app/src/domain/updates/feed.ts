@@ -106,6 +106,8 @@ export interface ReleaseQuery {
   readonly currentVersion: string;
   /** Platform, architecture and package format, such as `linux-x64-appimage`. */
   readonly artifactKey: string;
+  /** Versions that failed to start here and are never installed again. */
+  readonly blocked?: readonly string[];
 }
 
 /** A verified release that is newer than the running version. */
@@ -126,6 +128,7 @@ export function selectRelease(index: FeedIndex, query: ReleaseQuery): string | u
     .map((release) => release.version)
     .filter((version) => matchesVersionPrefix(version, query.versionPrefix ?? ''))
     .filter((version) => compareVersions(version, query.currentVersion) > 0)
+    .filter((version) => !(query.blocked ?? []).includes(version))
     .toSorted(compareVersions);
   return candidates.at(-1);
 }
@@ -177,15 +180,26 @@ export class SignedFeed {
     this.state.writeSequence(index.sequence);
     const version = selectRelease(index, query);
     if (version === undefined) return undefined;
-    const manifest = await this.load(`updates/v1/releases/${version}.json`, ReleaseManifestSchema);
-    if (manifest.version !== version) {
-      throw new FeedError('mismatch', `The manifest of ${version} describes ${manifest.version}`);
-    }
+    const manifest = await this.manifest(version);
     const artifact = manifest.artifacts[query.artifactKey];
     if (artifact === undefined) {
       throw new FeedError('no-artifact', `Release ${version} has no file for ${query.artifactKey}`);
     }
     return { manifest, artifact };
+  }
+
+  /**
+   * Loads and verifies the manifest of one version, such as the running one, whose package
+   * the boot guard keeps for a rollback.
+   * @param version - The version.
+   * @throws {FeedError} When the manifest cannot be trusted.
+   */
+  async manifest(version: string): Promise<ReleaseManifest> {
+    const manifest = await this.load(`updates/v1/releases/${version}.json`, ReleaseManifestSchema);
+    if (manifest.version !== version) {
+      throw new FeedError('mismatch', `The manifest of ${version} describes ${manifest.version}`);
+    }
+    return manifest;
   }
 
   private async load<T>(path: string, schema: v.GenericSchema<unknown, T>): Promise<T> {
