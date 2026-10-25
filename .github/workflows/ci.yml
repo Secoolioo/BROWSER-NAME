@@ -247,6 +247,65 @@ jobs:
           path: app/test-results
           retention-days: 7
 
+  perf:
+    name: perf (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the package as shipped, unpacked
+        working-directory: app
+        env:
+          PACKAGE_DIR: ${{ runner.temp }}/perf
+        run: |
+          pnpm exec electron-vite build
+          pnpm exec electron-builder --config electron-builder.config.mjs --publish never --dir
+          case "$RUNNER_OS" in
+            Linux) echo "PERF_APP=$PACKAGE_DIR/linux-unpacked/astela" >> "$GITHUB_ENV" ;;
+            Windows) echo "PERF_APP=$PACKAGE_DIR/win-unpacked/astela.exe" >> "$GITHUB_ENV" ;;
+            macOS)
+              bundle=$(find "$PACKAGE_DIR" -maxdepth 2 -name '*.app' | head -1)
+              echo "PERF_APP=$bundle/Contents/MacOS/$(basename "$bundle" .app)" >> "$GITHUB_ENV"
+              ;;
+          esac
+      - name: Prepare Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          # The unpacked build has no setuid sandbox helper; allow user namespaces instead.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Measure against the bare reference
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a node tools/perf/run.ts --app "$PERF_APP" --out perf.json
+          else
+            node tools/perf/run.ts --app "$PERF_APP" --out perf.json
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: perf-${{ matrix.os }}
+          path: perf.json
+          retention-days: 30
+
   commits:
     name: commits
     if: github.event_name == 'pull_request'
@@ -294,7 +353,7 @@ jobs:
   ci-gate:
     name: ci-gate
     if: always()
-    needs: [verify, unit, package, smoke, e2e, commits, workflow-security]
+    needs: [verify, unit, package, smoke, e2e, perf, commits, workflow-security]
     runs-on: ubuntu-24.04
     permissions: {}
     steps:

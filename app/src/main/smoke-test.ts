@@ -11,8 +11,10 @@ export interface SmokeReport {
   readonly platform: string;
   readonly arch: string;
   readonly packaged: boolean;
-  /** Milliseconds from process start until the shell finished loading. */
+  /** Milliseconds from process start until the shell finished loading and rendered. */
   readonly shellReadyMs: number;
+  /** Wall-clock time of that moment, so a harness can measure from the spawn. */
+  readonly readyAt: number;
   readonly shellUrl: string;
   /** Whether renderer processes run inside the Chromium sandbox. */
   readonly rendererSandboxed: boolean | 'unknown';
@@ -21,15 +23,16 @@ export interface SmokeReport {
 
 /**
  * Runs the self-test of a packaged build: waits for the first window's shell and tab,
- * writes a JSON report and quits. Installers and CI use it to check every package.
+ * writes a JSON report and quits. Installers and CI use it to check every package; the
+ * performance harness keeps the browser running to measure it.
  * @param window - The first window.
  * @param reportPath - Where to write the report.
- * @param startedAt - `performance.now()` at process start.
+ * @param keepRunning - Whether the browser stays open after the report.
  */
 export function runSmokeTest(
   window: BrowserWindowController,
   reportPath: string,
-  startedAt: number,
+  keepRunning: boolean,
 ): void {
   const errors: string[] = [];
   const finish = (shellReadyMs: number): void => {
@@ -46,12 +49,15 @@ export function runSmokeTest(
       arch: process.arch,
       packaged: app.isPackaged,
       shellReadyMs,
+      readyAt: Date.now(),
       shellUrl: window.shellContents.getURL(),
       rendererSandboxed: rendererSandboxed(window.shellContents),
       errors,
     };
     writeFileAtomicSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-    app.exit(report.ok ? 0 : 1);
+    if (!keepRunning || !report.ok) {
+      app.exit(report.ok ? 0 : 1);
+    }
   };
   const timeout = setTimeout(() => {
     errors.push('The shell did not load within 60 seconds');
@@ -61,7 +67,6 @@ export function runSmokeTest(
     errors.push(`Shell failed to load: ${code} ${description}`);
   });
   window.shellContents.once('did-finish-load', () => {
-    const ready = performance.now() - startedAt;
     void window.shellContents
       .executeJavaScript('document.querySelector("app-shell") !== null')
       .then((rendered: unknown) => {
@@ -72,7 +77,7 @@ export function runSmokeTest(
       .catch((error: unknown) => errors.push(`Shell check failed: ${String(error)}`))
       .finally(() => {
         clearTimeout(timeout);
-        finish(Math.round(ready));
+        finish(Math.round(performance.now()));
       });
   });
 }
