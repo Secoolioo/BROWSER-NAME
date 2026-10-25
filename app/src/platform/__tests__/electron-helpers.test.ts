@@ -1,4 +1,5 @@
 import type { Input } from 'electron';
+import { join } from 'node:path';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import { defineEvent, defineRequest } from '../../shared/ipc/contract.ts';
@@ -114,16 +115,16 @@ describe('resolveAppRoute', () => {
   it('maps hosts to their folder and shares the assets folder', () => {
     expect(resolveAppRoute('GET', 'app://shell/', root, hosts)).toEqual({
       kind: 'file',
-      path: '/r/shell/index.html',
+      path: join(root, 'shell', 'index.html'),
       contentType: 'text/html; charset=utf-8',
     });
     expect(resolveAppRoute('GET', 'app://SHELL/assets/a-1.js?v=1', root, hosts)).toEqual({
       kind: 'file',
-      path: '/r/assets/a-1.js',
+      path: join(root, 'assets', 'a-1.js'),
       contentType: 'text/javascript; charset=utf-8',
     });
     expect(resolveAppRoute('HEAD', 'app://settings/sub/', root, hosts)).toMatchObject({
-      path: '/r/settings/sub/index.html',
+      path: join(root, 'settings', 'sub', 'index.html'),
     });
   });
 

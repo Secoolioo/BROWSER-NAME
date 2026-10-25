@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 import type {
   PolicyProvider,
   PolicyReadError,
@@ -198,12 +198,13 @@ export class LinuxJsonPolicyProvider implements PolicyProvider {
       ['managed', 'mandatory'],
       ['recommended', 'recommended'],
     ] as const) {
-      const dir = join(this.directory, folder);
+      // Linux paths, also when the tests run on Windows.
+      const dir = posix.join(this.directory, folder);
       const merged = new Map<string, RawPolicyValue>();
       for (const file of (this.io.listDir(dir) ?? [])
         .filter((f) => f.endsWith('.json'))
         .toSorted()) {
-        const path = join(dir, file);
+        const path = posix.join(dir, file);
         try {
           const parsed: unknown = JSON.parse(new TextDecoder().decode(this.io.readFile(path)));
           if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
