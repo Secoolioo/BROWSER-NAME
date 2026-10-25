@@ -36,7 +36,7 @@ const checks: readonly Check[] = [
   {
     name: 'typecheck',
     title: 'Type check (tsc --build)',
-    command: ['pnpm', 'exec', 'tsc', '--build', 'app'],
+    command: ['pnpm', 'exec', 'tsc', '--build', 'app', 'tools'],
   },
   {
     name: 'lint',

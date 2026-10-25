@@ -39,6 +39,8 @@ import { SystemClock } from '../platform/node/system-clock.ts';
 import { JsonFilePolicyCache } from '../platform/policy/policy-providers.ts';
 import { createPolicyProviders } from '../platform/policy/platform-providers.ts';
 import { SearchUrlTemplate, coreSettings } from './core-settings.ts';
+import { showSandboxHelp } from './sandbox-help.ts';
+import { runSandboxHelpSmokeTest, runSmokeTest } from './smoke-test.ts';
 
 /** Paths of the bundled files, relative to the main bundle. */
 export interface BundleLayout {
@@ -46,6 +48,8 @@ export interface BundleLayout {
   readonly rendererDir: string;
   /** Preload script of the shell. */
   readonly shellPreload: string;
+  /** Preload script of internal pages. */
+  readonly pagePreload: string;
   /** Dev server URL of the shell, only during development. */
   readonly devShellUrl: string | undefined;
 }
@@ -61,6 +65,7 @@ const blankUrl = 'about:blank';
  * @param layout - Where the bundled files are.
  */
 export async function bootstrap(layout: BundleLayout): Promise<void> {
+  const startedAt = performance.now();
   registerAppScheme();
   app.setName(brand.productName);
   app.userAgentFallback = cleanUserAgent(app.userAgentFallback);
@@ -99,7 +104,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
 
   await app.whenReady();
   const lifecycle = new Lifecycle(logger, clock, {});
-  const protocolHandler = new AppProtocol(layout.rendererDir, new Set(['shell']));
+  const protocolHandler = new AppProtocol(layout.rendererDir, new Set(['shell', 'sandbox-help']));
   const internal = session.fromPartition(internalPartition);
   protocolHandler.serve(internal);
   hardenSession(internal);
@@ -117,6 +122,24 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
 
   const gate = new IpcGate(clock);
   const router = new IpcRouter(gate, logger);
+  if (app.commandLine.hasSwitch('sandbox-help')) {
+    // Started by the AppImage launcher because the sandbox cannot work: no web content.
+    const help = showSandboxHelp({
+      url: 'app://sandbox-help/',
+      origin: 'app://sandbox-help',
+      preload: layout.pagePreload,
+      partition: internalPartition,
+      gate,
+      router,
+      logger,
+    });
+    app.on('window-all-closed', () => app.quit());
+    const helpReport = app.commandLine.getSwitchValue('smoke-test');
+    if (helpReport !== '') {
+      runSandboxHelpSmokeTest(help.webContents, helpReport);
+    }
+    return;
+  }
   const store = new JsonFileSettingsStore(
     join(userData, 'settings.json'),
     join(userData, 'settings.rejected.json'),
@@ -145,8 +168,12 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   });
   registerShellHandlers(router, windows, settings);
 
-  windows.open();
+  const first = windows.open();
   lifecycle.advance('ready');
+  const smokeReport = app.commandLine.getSwitchValue('smoke-test');
+  if (smokeReport !== '') {
+    runSmokeTest(first, smokeReport, startedAt);
+  }
   logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });
 
   const refreshPolicies = (): void => void policies.refresh();
@@ -166,10 +193,18 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     if (quitting) return;
     quitting = true;
     event.preventDefault();
-    lifecycle.onWillShutdown((e) => e.join(store.flush(), 'settings'));
+    logger.info('Shutting down');
+    lifecycle.onWillShutdown((e) => {
+      e.join(store.flush(), 'settings');
+      const web = session.fromPartition(webPartition);
+      web.flushStorageData();
+      e.join(web.cookies.flushStore(), 'cookies');
+    });
     void lifecycle.shutdown('quit').then(() => {
       windows.dispose();
-      app.quit();
+      logger.info('Shutdown complete');
+      // Everything is saved and every window is closed at this point.
+      app.exit(0);
     });
   });
   lifecycle.advance('running');

@@ -8,6 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 bootstrap({
   rendererDir: join(here, '../renderer'),
   shellPreload: join(here, '../preload/shell.cjs'),
+  pagePreload: join(here, '../preload/page.cjs'),
   devShellUrl:
     !app.isPackaged && process.env['ELECTRON_RENDERER_URL'] !== undefined
       ? `${process.env['ELECTRON_RENDERER_URL']}/shell/`

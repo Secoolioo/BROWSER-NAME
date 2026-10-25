@@ -2,9 +2,11 @@ packages:
   - app
   - tools
 
-# Only these dependencies may run install scripts.
+# Only these dependencies may run install scripts. Squirrel.Windows is not used, so the
+# installer of electron-winstaller stays blocked.
 allowBuilds:
   electron: true
+  electron-winstaller: false
   lefthook: true
 
 # dependency-cruiser loads TypeScript at runtime without declaring it. It needs the
@@ -13,3 +15,10 @@ packageExtensions:
   dependency-cruiser@18:
     peerDependencies:
       typescript: '>=5 <7'
+
+# Patched packages get a '=' in their store path, which fpm cannot handle; shorter
+# directory names replace that part with a hash.
+virtualStoreDirMaxLength: 60
+
+patchedDependencies:
+  app-builder-lib@26.18.0: patches/app-builder-lib@26.18.0.patch
