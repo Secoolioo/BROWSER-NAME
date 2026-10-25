@@ -62,7 +62,13 @@ export interface RejectedSetting {
 
 /** Persists settings. The platform adapter writes atomically and debounces. */
 export interface SettingsStore {
+  /** Reads the stored user values; an empty set when nothing is stored yet. */
   load(): Promise<StoredSettings>;
+  /**
+   * Stores the user values and the values that were rejected while loading.
+   * @param settings - Valid user values.
+   * @param rejected - Values kept aside because they were invalid.
+   */
   save(settings: StoredSettings, rejected: readonly RejectedSetting[]): Promise<void>;
 }
 

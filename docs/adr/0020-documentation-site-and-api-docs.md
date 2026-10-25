@@ -8,6 +8,16 @@ Accepted
 
 2026-10-25
 
+## Validation
+
+The first version of the site builds the landing page, every page of `docs/`, the changelog and the API reference. Notes from building it:
+
+- `website/scripts/sync-docs.ts` turns `docs/` into pages at build time: the first heading becomes the title, links between Markdown files become links between pages, and links to other repository files point to GitHub. The synced pages are not committed.
+- starlight-typedoc does not run TypeDoc's validation. `pnpm --dir website run check:api` therefore runs TypeDoc itself with `website/typedoc.json`, and the site build reads its options from the same file. Members inherited from third-party classes are left out (`excludeExternals`), and documentation is required for declarations and methods but not for every interface property.
+- The website package depends on TypeScript 6.0.3 directly; no alias is needed because it is a separate workspace package.
+- Mermaid diagrams are rendered in the browser. The Mermaid render check and the lychee link check arrive with `pages.yml`.
+- Astro 7 needs Node.js 22.23.4 or later; the repository uses Node.js 24 (`.node-version`).
+
 ## Context
 
 Lampo needs one public website for the landing page, downloads, feature pages, user, admin and developer documentation, the API reference and the changelog. The same GitHub Pages site also serves the signed update feed and the Linux package repositories ([ADR 0014](0014-update-architecture-with-signed-feed.md), [ADR 0015](0015-linux-package-repositories.md)). Documentation has to be versioned and reviewed with the code, every public class, method and function has to carry a doc comment, and nothing on the site may link to downloads that do not exist yet.

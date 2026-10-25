@@ -30,7 +30,9 @@ pnpm install   # also installs the git hooks
 pnpm verify    # every check CI runs in the verify job
 ```
 
-`pnpm verify --only <name>[,<name>]` runs a subset: `format`, `markdown`, `typecheck`, `lint`, `architecture`, `test`, `shell`. Run the full command before pushing.
+`pnpm verify --only <name>[,<name>]` runs a subset: `format`, `markdown`, `typecheck`, `lint`, `architecture`, `test`, `api`, `website`, `shell`. Run the full command before pushing. The website build needs the Node.js version from `.node-version`.
+
+`pnpm --dir website run dev` serves the website locally with the documentation from `docs/`.
 
 ## Dependencies
 

@@ -1,4 +1,4 @@
-import type { Disposable, DisposableStore } from '../../shared/disposable.ts';
+import type { DisposableStore } from '../../shared/disposable.ts';
 import type { Container, InjectableClass } from '../di/container.ts';
 import type { Logger } from '../logging/logger.ts';
 
@@ -34,7 +34,7 @@ export interface ModuleContext {
 }
 
 /** The code of a feature module that runs in the browser process. */
-export interface FeatureModule extends Partial<Disposable> {
+export interface FeatureModule {
   /**
    * Starts the module: registers its contributions in `context.subscriptions`.
    * @param context - The module's context.
@@ -42,6 +42,8 @@ export interface FeatureModule extends Partial<Disposable> {
   activate(context: ModuleContext): void | Promise<void>;
   /** Stops work that subscriptions cannot undo by themselves. Optional. */
   deactivate?(): void | Promise<void>;
+  /** Releases resources the module holds outside its subscriptions. Optional. */
+  dispose?(): void;
 }
 
 /** A feature module class, constructed by the module's container. */

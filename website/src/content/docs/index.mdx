@@ -1,0 +1,39 @@
+---
+title: Lampo
+description: A fast, lean and deeply customizable desktop browser for Windows, macOS and Linux.
+template: splash
+hero:
+  tagline: A fast, lean and deeply customizable desktop browser for Windows, macOS and Linux. It starts at once, uses little memory, adapts to the way you work, and otherwise leaves you alone.
+  image:
+    file: ../../../../assets/brand/app-icon.svg
+  actions:
+    - text: Read the roadmap
+      link: docs/roadmap/
+      icon: right-arrow
+    - text: Source code
+      link: https://github.com/Secoolioo/lampo
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Lampo is in early development. The first beta is being prepared; downloads appear here with
+its release.
+
+<CardGrid>
+  <Card title="Fast by design" icon="rocket">
+    Every pull request measures start-up time, memory and CPU against a bare Electron app, and a
+    regression fails the build.
+  </Card>
+  <Card title="Calm" icon="moon">
+    No ads, no sponsored tiles, no feeds and no telemetry. Dialogs only for security decisions.
+  </Card>
+  <Card title="Yours to shape" icon="setting">
+    Workspaces, tab bars on any side, themes, shortcuts and layouts, all built on one settings
+    schema.
+  </Card>
+  <Card title="Ready for organizations" icon="document">
+    Policies for Windows, macOS and Linux, an MSI package, signed updates and package repositories.
+  </Card>
+</CardGrid>

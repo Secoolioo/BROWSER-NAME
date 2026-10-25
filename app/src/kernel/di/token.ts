@@ -1,5 +1,5 @@
 /**
- * Identifies a service in the {@link Container}. The type parameter carries the type of
+ * Identifies a service in the `Container`. The type parameter carries the type of
  * the service, so `resolve(token)` is typed without casts.
  */
 export interface Token<T> {

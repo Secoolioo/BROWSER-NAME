@@ -30,7 +30,10 @@ export interface LogRecord {
 
 /** Writes log records somewhere, for example to a rotating file or a memory buffer. */
 export interface LogSink {
-  /** @param record - The record to write. */
+  /**
+   * Writes one record.
+   * @param record - The record to write.
+   */
   write(record: LogRecord): void;
 }
 

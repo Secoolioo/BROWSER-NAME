@@ -86,18 +86,15 @@ export class AppImageRollback implements Rollback {
     this.launch = launch;
   }
 
-  /** {@inheritDoc Rollback.prepare} */
   prepare(): Promise<void> {
     return Promise.resolve();
   }
 
-  /** {@inheritDoc Rollback.keep} */
   keep(): void {
     mkdirSync(join(this.previous, '..'), { recursive: true });
     copyFileSync(this.appImage, this.previous);
   }
 
-  /** {@inheritDoc Rollback.restore} */
   restore(args: readonly string[]): boolean {
     if (!existsSync(this.previous)) return false;
     // The running AppImage stays mounted from its old inode, so the swap is safe.
@@ -130,7 +127,6 @@ export class NsisRollback implements Rollback {
     return join(this.directory, `installer-${version}.exe`);
   }
 
-  /** {@inheritDoc Rollback.prepare} */
   async prepare(version: string, download: PackageDownloader): Promise<void> {
     const target = this.installerFor(version);
     if (existsSync(target)) return;
@@ -158,14 +154,15 @@ export class NsisRollback implements Rollback {
     writeFileSync(join(this.directory, 'installer.json'), JSON.stringify({ version }));
   }
 
-  /** {@inheritDoc Rollback.keep} */
   keep(): void {
     // The installer was fetched by `prepare`; nothing to copy while exiting.
   }
 
   /**
-   * {@inheritDoc Rollback.restore}
-   * The installer starts the restored version itself, without arguments.
+   * Reinstalls the previous version silently; the installer starts it afterwards, without
+   * arguments.
+   * @param _args - Not used, because the installer starts the browser.
+   * @returns Whether an installer of the previous version was found.
    */
   restore(_args: readonly string[]): boolean {
     let version: unknown;

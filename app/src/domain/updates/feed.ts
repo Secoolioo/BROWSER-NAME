@@ -15,7 +15,7 @@ const size = v.pipe(v.number(), v.integer(), v.minValue(0));
 /** `updates/v1/index.json`: the releases per channel and the freshness fields. */
 export const FeedIndexSchema = v.object({
   schemaVersion: v.literal(1),
-  /** Monotonic counter; clients never accept a lower value than the last one they saw. */
+  // Monotonic counter; clients never accept a lower value than the last one they saw.
   sequence: v.pipe(v.number(), v.integer(), v.minValue(0)),
   issuedAt: timestamp,
   expiresAt: timestamp,
@@ -29,9 +29,9 @@ export type FeedIndex = v.InferOutput<typeof FeedIndexSchema>;
 export const ReleaseArtifactSchema = v.object({
   file: fileName,
   size,
-  /** SHA-512 of the file, Base64-encoded as electron-updater expects. */
+  // SHA-512 of the file, Base64-encoded as electron-updater expects.
   sha512: v.pipe(v.string(), v.regex(/^[A-Za-z0-9+/]+={0,2}$/, 'Must be Base64')),
-  /** Size of the blockmap embedded at the end of the file, where the format has one. */
+  // Size of the blockmap embedded at the end of the file, where the format has one.
   blockMapSize: v.optional(size),
 });
 
@@ -43,9 +43,9 @@ export const ReleaseManifestSchema = v.object({
   schemaVersion: v.literal(1),
   version: versionSchema,
   releaseDate: timestamp,
-  /** Where the files are, relative to the feed or absolute. */
+  // Where the files are, relative to the feed or absolute.
   downloadBase: v.string(),
-  /** Files by `<platform>-<arch>-<format>`, such as `win32-x64-nsis`. */
+  // Files by `<platform>-<arch>-<format>`, such as `win32-x64-nsis`.
   artifacts: v.record(v.string(), ReleaseArtifactSchema),
 });
 
@@ -93,7 +93,12 @@ export interface FeedFetcher {
 
 /** Remembers the highest index sequence seen, to detect rollback attacks. */
 export interface FeedStateStore {
+  /** Returns the highest sequence seen so far, or 0. */
   readSequence(): number;
+  /**
+   * Stores a higher sequence.
+   * @param sequence - Sequence of a verified index.
+   */
   writeSequence(sequence: number): void;
 }
 
