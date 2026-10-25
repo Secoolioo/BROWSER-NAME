@@ -11,12 +11,14 @@ BASE="http://127.0.0.1:$PORT"
 mkdir -p "$OUT" "$WWW"
 note() { echo "$*" | tee -a "$OUT/results.txt"; }
 VERSIONS=(0.1.0-beta.1 0.1.0-beta.2 0.1.0)
+# fpm expands NAME, VERSION and ARCH in output paths, so build outside the checkout.
+DIST="${RUNNER_TEMP:-/tmp}/repo-spike-dist"
 
 npm install --no-audit --no-fund >/dev/null
 for v in "${VERSIONS[@]}"; do
   npx electron-builder --linux deb rpm --publish never -c.extraMetadata.version="$v" \
-    -c.directories.output="dist/$v" >"$OUT/build-$v.log" 2>&1 || { note "build $v failed"; tail -30 "$OUT/build-$v.log"; exit 1; }
-  note "built $v: deb $(dpkg-deb -f dist/"$v"/*.deb Version) rpm $(rpm -qp --qf '%{VERSION}-%{RELEASE}' dist/"$v"/*.rpm 2>/dev/null)"
+    -c.directories.output="$DIST/$v" >"$OUT/build-$v.log" 2>&1 || { note "build $v failed"; tail -30 "$OUT/build-$v.log"; exit 1; }
+  note "built $v: deb $(dpkg-deb -f "$DIST/$v"/*.deb Version) rpm $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$DIST/$v"/*.rpm 2>/dev/null)"
 done
 
 export GNUPGHOME="$ROOT/gnupg"
@@ -29,8 +31,8 @@ gpg --export "$KEYID" >"$WWW/key.gpg"
 # Release assets live in versioned directories, as on GitHub Releases.
 for v in "${VERSIONS[@]}"; do
   mkdir -p "$WWW/releases/download/v$v"
-  cp dist/"$v"/*.rpm "$WWW/releases/download/v$v/"
-  cp dist/"$v"/*.deb "$WWW/releases/download/v$v/"
+  cp "$DIST/$v"/*.rpm "$WWW/releases/download/v$v/"
+  cp "$DIST/$v"/*.deb "$WWW/releases/download/v$v/"
 done
 for f in "$WWW"/releases/download/*/*.rpm; do
   rpmsign --define "_gpg_name $KEYID" --addsign "$f" >"$OUT/rpmsign.log" 2>&1 || note "rpmsign failed for $f: $(tail -1 "$OUT/rpmsign.log")"
