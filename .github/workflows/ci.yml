@@ -49,6 +49,205 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
+  package:
+    name: package (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64, os: ubuntu-24.04, args: --linux --x64 }
+          - { name: linux-arm64, os: ubuntu-24.04-arm, args: --linux --arm64 }
+          - { name: windows-x64, os: windows-2025, args: --win --x64 }
+          - { name: windows-arm64, os: windows-11-arm, args: --win nsis --arm64 }
+          - { name: macos, os: macos-15, args: --mac --arm64 --x64 -c.mac.identity=- }
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILDER_ARGS: ${{ matrix.args }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install rpm tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - name: Build packages
+        working-directory: app
+        env:
+          PACKAGE_DIR: ${{ runner.temp }}/packages
+        run: |
+          pnpm exec electron-vite build
+          # shellcheck disable=SC2086 # the arguments are a list on purpose
+          pnpm exec electron-builder --config electron-builder.config.mjs --publish never $BUILDER_ARGS
+          find "$PACKAGE_DIR" -maxdepth 1 -type f -printf '%s %f\n' 2>/dev/null || ls -l "$PACKAGE_DIR"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-${{ matrix.name }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/packages/*.exe
+            ${{ runner.temp }}/packages/*.msi
+            ${{ runner.temp }}/packages/*.dmg
+            ${{ runner.temp }}/packages/*.zip
+            ${{ runner.temp }}/packages/*.AppImage
+            ${{ runner.temp }}/packages/*.deb
+            ${{ runner.temp }}/packages/*.rpm
+            ${{ runner.temp }}/packages/*.blockmap
+            ${{ runner.temp }}/packages/*.yml
+
+  smoke:
+    name: smoke (${{ matrix.name }})
+    needs: package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {
+              name: linux-x64,
+              os: ubuntu-24.04,
+              packages: linux-x64,
+              formats: 'appimage-no-sandbox:*.AppImage appimage:*.AppImage deb:*.deb',
+            }
+          - {
+              name: linux-arm64,
+              os: ubuntu-24.04-arm,
+              packages: linux-arm64,
+              formats: 'appimage:*.AppImage deb:*.deb',
+            }
+          - {
+              name: windows-x64,
+              os: windows-2025,
+              packages: windows-x64,
+              formats: 'nsis:*-setup.exe msi:*.msi',
+            }
+          - {
+              name: windows-arm64,
+              os: windows-11-arm,
+              packages: windows-arm64,
+              formats: 'nsis:*-setup.exe',
+            }
+          - { name: macos-arm64, os: macos-15, packages: macos, formats: 'dmg:*-arm64.dmg' }
+          - { name: macos-x64, os: macos-15-intel, packages: macos, formats: 'dmg:*-x64.dmg' }
+    defaults:
+      run:
+        shell: bash
+    env:
+      FORMATS: ${{ matrix.formats }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: packages-${{ matrix.packages }}
+          path: ${{ runner.temp }}/packages
+      - name: Prepare Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2t64 xvfb
+          # Ubuntu restricts unprivileged user namespaces; the packages must cope with that.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
+          Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Install, start and remove each package
+        run: |
+          for entry in $FORMATS; do
+            format="${entry%%:*}"
+            pattern="${entry#*:}"
+            # shellcheck disable=SC2086 # the pattern must expand
+            file=$(ls "$RUNNER_TEMP"/packages/$pattern | head -1)
+            node tools/package/smoke.ts "$format" "$file"
+          done
+      - name: Install and start the rpm on Fedora
+        if: matrix.name == 'linux-x64'
+        run: |
+          docker run --rm -v "$RUNNER_TEMP/packages:/packages" fedora:latest bash -c '
+            dnf install -y -q /packages/*.rpm xorg-x11-server-Xvfb xorg-x11-xauth >/dev/null &&
+            xvfb-run -a /opt/*/astela --no-sandbox --smoke-test=/packages/rpm-report.json'
+          node -e 'const r = require(process.argv[1]); console.log(r); process.exit(r.ok ? 0 : 1)' "$RUNNER_TEMP/packages/rpm-report.json"
+
+  e2e:
+    name: e2e (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_BUILD: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the test package
+        working-directory: app
+        env:
+          PACKAGE_DIR: ${{ runner.temp }}/e2e
+        run: |
+          pnpm exec electron-vite build
+          pnpm exec electron-builder --config electron-builder.config.mjs --publish never --dir
+          case "$RUNNER_OS" in
+            Linux) echo "E2E_APP=$PACKAGE_DIR/linux-unpacked/astela" >> "$GITHUB_ENV" ;;
+            Windows) echo "E2E_APP=$PACKAGE_DIR/win-unpacked/astela.exe" >> "$GITHUB_ENV" ;;
+            macOS) echo "E2E_APP=$(ls -d "$PACKAGE_DIR"/mac*/*.app)/Contents/MacOS/$(ls "$(ls -d "$PACKAGE_DIR"/mac*/*.app)/Contents/MacOS")" >> "$GITHUB_ENV" ;;
+          esac
+      - name: Prepare Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          # The unpacked test build has no setuid sandbox helper; allow user namespaces instead.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Run end-to-end tests
+        working-directory: app
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a pnpm exec playwright test
+          else
+            pnpm exec playwright test
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: e2e-traces-${{ matrix.os }}
+          path: app/test-results
+          retention-days: 7
+
   commits:
     name: commits
     if: github.event_name == 'pull_request'
@@ -96,7 +295,7 @@ jobs:
   ci-gate:
     name: ci-gate
     if: always()
-    needs: [verify, unit, commits, workflow-security]
+    needs: [verify, unit, package, smoke, e2e, commits, workflow-security]
     runs-on: ubuntu-24.04
     permissions: {}
     steps:

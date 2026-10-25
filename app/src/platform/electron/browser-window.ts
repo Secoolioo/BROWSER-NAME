@@ -53,7 +53,7 @@ export class BrowserWindowController implements Disposable, TabViewPort {
   private visible: WebContentsView | undefined;
   private insets: Insets = { top: 76, right: 0, bottom: 0, left: 0 };
   private readonly subscriptions = new DisposableStore();
-  private publishScheduled = false;
+  private publishTimer: NodeJS.Timeout | undefined;
   private readonly options: BrowserWindowOptions;
 
   /** @param options - Environment of the window. */
@@ -193,7 +193,10 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     }
     this.views.delete(id);
     if (this.visible === view) {
-      this.window.contentView.removeChildView(view);
+      // A destroyed window no longer has a content view; touching it blocks.
+      if (!this.window.isDestroyed()) {
+        this.window.contentView.removeChildView(view);
+      }
       this.visible = undefined;
     }
     view.webContents.close();
@@ -220,6 +223,8 @@ export class BrowserWindowController implements Disposable, TabViewPort {
 
   /** Closes the window and every tab view. */
   dispose(): void {
+    // A message to a shell that is closing can block the exit of the app.
+    clearTimeout(this.publishTimer);
     this.subscriptions.dispose();
     if (!this.window.isDestroyed()) {
       this.window.destroy();
@@ -305,16 +310,10 @@ export class BrowserWindowController implements Disposable, TabViewPort {
   }
 
   private schedulePublish(): void {
-    if (this.publishScheduled) {
-      return;
-    }
-    this.publishScheduled = true;
     // Coalesce bursts of tab events into one message per frame.
-    setTimeout(() => {
-      this.publishScheduled = false;
-      if (!this.shell.webContents.isDestroyed()) {
-        this.options.router.publish(ShellStateChanged, this.shell.webContents, this.state());
-      }
+    this.publishTimer ??= setTimeout(() => {
+      this.publishTimer = undefined;
+      this.options.router.publish(ShellStateChanged, this.shell.webContents, this.state());
     }, 16);
   }
 }
