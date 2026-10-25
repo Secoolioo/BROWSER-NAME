@@ -8,6 +8,10 @@ Accepted
 
 2026-10-25
 
+## Validation
+
+Validated on 2026-10-25: installation and upgrades from `0.1.0-beta.1` to `0.1.0` work on Ubuntu 22.04 and 24.04, Debian 12 and 13, and Fedora 43 and 44. See the [validation results](../architecture/validation.md#linux-package-repositories).
+
 ## Context
 
 Lampo ships deb packages for amd64 and arm64 and rpm packages for x86_64 and aarch64, next to the AppImage ([ADR 0003](0003-packaging-with-electron-builder.md)). People who install these formats expect updates to arrive with their regular system updates, signed and verified by the package manager.

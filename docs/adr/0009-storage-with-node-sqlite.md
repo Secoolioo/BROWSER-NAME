@@ -8,6 +8,10 @@ Accepted
 
 2026-10-25
 
+## Validation
+
+Validated on 2026-10-25: `node:sqlite` 3.53.4 passed the day-one checks on all six platforms, so the fallback is not used. See the [validation results](../architecture/validation.md#storage-with-nodesqlite).
+
 ## Context
 
 Lampo stores history, bookmarks, the downloads list, favicons and site permissions per profile. History needs full-text search: the omnibox suggests from history in under 30 ms, and a history search over 100,000 entries must finish in under 50 ms. Updates must never destroy data, so every schema change needs a migration with a snapshot to roll back to ([ADR 0014](0014-update-architecture-with-signed-feed.md)).

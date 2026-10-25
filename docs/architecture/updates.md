@@ -164,7 +164,7 @@ Updates must never destroy data. Every data migration takes a snapshot first, an
 ### Windows NSIS
 
 - NSIS is the default for home users: a per-user installation without administrator rights, for x64 and arm64.
-- Spike 1 will measure whether `nsis` with a blockmap or `nsis-web` with `differentialPackage` produces smaller deltas. Delta sizes will be published only after that measurement.
+- `nsis` with a separate blockmap is used. In the [validation run](validation.md#signed-update-feed-and-delta-updates), an update of a 113 MB installer downloaded 0.78 MB, so `nsis-web` is not needed.
 - Windows installers ship unsigned for now, so the **first installation** triggers a SmartScreen warning; updates run without it. The solution is Windows code signing (see [code signing](#code-signing)).
 
 ### Windows MSI
@@ -182,18 +182,18 @@ Updates must never destroy data. Every data migration takes a snapshot first, an
 - Squirrel.Mac requires a stable code signature across versions.
 - **With an Apple Developer ID**, the app is signed and notarized, and updates will install silently.
 - **Without an Apple Developer ID**, there are two paths:
-  1. A self-signed certificate with a stable designated requirement, so that Squirrel.Mac and the Keychain keep working across updates. A CI updater test on macOS will verify this path in an M1 spike. The first start then needs a one-time "Open Anyway" in System Settings (macOS Sequoia and later).
-  2. If the spike fails: the update will be downloaded and verified in the background and installed with one click from the menu.
-- **Current decision:** there is no code signing budget for now, so macOS uses path 1, with path 2 as the fallback if the spike fails. The Apple Developer Program (99 USD per year, as of October 2026) would add notarization and remove the Gatekeeper hurdle; once its secrets exist, the release workflow will sign and notarize automatically.
+  1. A self-signed certificate with a stable designated requirement, so that Squirrel.Mac and the Keychain keep working across updates. A CI updater test on macOS [verified this path](validation.md#signed-update-feed-and-delta-updates). The first start then needs a one-time "Open Anyway" in System Settings (macOS Sequoia and later).
+  2. Fallback, not needed after the validation: the update is downloaded and verified in the background and installed with one click from the menu.
+- **Current decision:** there is no code signing budget for now, so macOS uses path 1. The Apple Developer Program (99 USD per year, as of October 2026) would add notarization and remove the Gatekeeper hurdle; once its secrets exist, the release workflow will sign and notarize automatically.
 
 ### Linux AppImage
 
 - The AppImage uses the static runtime, so libfuse2 is not required.
 - Ubuntu 24.04 and later restrict unprivileged user namespaces, which disables the Chromium sandbox for AppImages (as of October 2026).
-- Lampo will never fall back to `--no-sandbox` silently. Instead, it will show a page with a one-click fix and the recommendation to use the deb or rpm package.
+- Lampo will never fall back to `--no-sandbox` silently. The launcher that electron-builder generates for AppImages does exactly that ([validation results](validation.md#linux-sandbox-with-restricted-user-namespaces)), so Lampo's AppImage ships its own launcher. It starts the browser with the sandbox; only if Chromium refuses to start for lack of a sandbox does it open a local page with a one-click fix and the recommendation to use the deb or rpm package, in a restricted mode without web content.
 - The fix will use `pkexec` to install an AppArmor profile with `userns`. Because AppImages run from `/tmp/.mount_*`, the profile applies to `/tmp/.mount_*/lampo`; this scope will be documented for users.
 - "Continue without sandbox" will be available only after explicit confirmation and will keep a permanent warning bar.
-- The fix will be tested on a host runner with the user namespace restriction enabled, not in a container.
+- The fix is tested on a host runner with the user namespace restriction enabled, not in a container. The validation run confirmed on Ubuntu 24.04 (x64 and arm64) that the profile gives the AppImage a working namespace sandbox.
 
 ### Linux deb
 
@@ -220,9 +220,9 @@ The upgrade sequence `0.1.0-beta.1 → 0.1.0-beta.2 → 0.1.0` must work for NSI
 
 Release assets carry no version in their names, for example `lampo-windows-x64-setup.exe`, `lampo-macos-arm64.dmg` and `lampo-linux-x86_64.AppImage`. They will be attached to versioned tags, so `releases/latest/download/<name>` stays a stable link. The blockmap delta will find the previous version through its tag.
 
-## Early spikes
+## Validation spikes
 
-These spikes are scheduled for the start of M1, before the first walking skeleton release, because they carry the highest risk:
+These spikes ran at the start of M1, before the first walking skeleton release, because they carry the highest risk. The [validation results](validation.md) record what was measured:
 
 1. Custom provider with Ed25519 verification, with NSIS deltas on Windows and AppImage deltas on Linux; delta sizes are measured.
 2. macOS with a self-signed certificate: Squirrel.Mac updates and Keychain stability.

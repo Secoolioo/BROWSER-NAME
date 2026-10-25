@@ -8,6 +8,10 @@ Accepted
 
 2026-10-25
 
+## Validation
+
+Validated on 2026-10-25: the signed feed, the rejection rules and silent delta updates work for NSIS, AppImage and self-signed macOS builds. See the [validation results](../architecture/validation.md#signed-update-feed-and-delta-updates).
+
 ## Context
 
 Lampo updates itself on Windows, macOS and Linux across several package formats: NSIS, MSI, dmg and zip, AppImage, deb and rpm ([ADR 0003](0003-packaging-with-electron-builder.md)). Updates have to be quiet and safe: no dialogs, no data loss, and a way back when a new version fails to start. Organizations need to switch updates off, choose a channel, pin a version prefix and point clients at an internal mirror.

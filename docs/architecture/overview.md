@@ -8,18 +8,18 @@ Lampo is a desktop browser for Windows, macOS and Linux. It embeds Chromium thro
 
 Each decision is recorded in an [architecture decision record](../adr/README.md).
 
-| Topic                | Decision                                                                                                                                           | ADR  |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| Engine               | Upstream Electron, always on the latest stable major (45.x as of October 2026). Each new major is adopted within two to four weeks.                | 0002 |
-| Web content          | `BaseWindow` with one `WebContentsView` per tab; no `<webview>` tag and no `BrowserView`.                                                          | 0002 |
-| Language and build   | TypeScript in strict mode, limited to erasable syntax; Vite with electron-vite builds the main, preload and renderer code.                         | 0004 |
-| UI                   | Class-based web components with Lit, written without decorators; trivial leaf elements are plain `HTMLElement` classes.                            | 0005 |
-| Dependency injection | A custom typed container with constructor injection and scopes, without reflection.                                                                | 0006 |
-| IPC                  | Typed contracts with Valibot schemas, validated on every call.                                                                                     | 0007 |
-| Internal pages       | A privileged `app://` scheme served through `protocol.handle` and registered on every session.                                                     | 0008 |
-| Storage              | `node:sqlite` in a `utilityProcess`. An early spike will validate it on every platform and architecture; a prebuilt native module is the fallback. | 0009 |
-| Modules              | A microkernel with lazily loaded feature modules.                                                                                                  | 0010 |
-| Updates              | electron-updater as the installation engine behind Lampo's own Ed25519-signed update feed.                                                         | 0014 |
+| Topic                | Decision                                                                                                                                   | ADR  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---- |
+| Engine               | Upstream Electron, always on the latest stable major (45.x as of October 2026). Each new major is adopted within two to four weeks.        | 0002 |
+| Web content          | `BaseWindow` with one `WebContentsView` per tab; no `<webview>` tag and no `BrowserView`.                                                  | 0002 |
+| Language and build   | TypeScript in strict mode, limited to erasable syntax; Vite with electron-vite builds the main, preload and renderer code.                 | 0004 |
+| UI                   | Class-based web components with Lit, written without decorators; trivial leaf elements are plain `HTMLElement` classes.                    | 0005 |
+| Dependency injection | A custom typed container with constructor injection and scopes, without reflection.                                                        | 0006 |
+| IPC                  | Typed contracts with Valibot schemas, validated on every call.                                                                             | 0007 |
+| Internal pages       | A privileged `app://` scheme served through `protocol.handle` and registered on every session.                                             | 0008 |
+| Storage              | `node:sqlite` in a `utilityProcess`, validated on every platform and architecture; a prebuilt native module stays the documented fallback. | 0009 |
+| Modules              | A microkernel with lazily loaded feature modules.                                                                                          | 0010 |
+| Updates              | electron-updater as the installation engine behind Lampo's own Ed25519-signed update feed.                                                 | 0014 |
 
 ## Process model
 
@@ -401,5 +401,6 @@ Wayland does not let applications position their windows. A torn-off window is t
 - [Security](security.md): Electron hardening, permissions, network protections and the supply chain.
 - [Performance](performance.md): budgets, techniques and the measurement method.
 - [Testing](testing.md): test levels, tools and rules.
+- [Validation results](validation.md): measurements from the experiments that tested the riskiest assumptions.
 - [Architecture decision records](../adr/README.md): every significant decision and its reasoning.
 - [Roadmap](../roadmap.md): milestones, priorities and the M1 delivery order.
