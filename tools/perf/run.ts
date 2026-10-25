@@ -48,6 +48,8 @@ interface Measurements {
   startupMs: Record<Variant['name'], number[]>;
   memoryBytes: Record<Variant['name'], number[]>;
   cpuPercent: Record<Variant['name'], number[]>;
+  /** Start-up marks per run. */
+  marks: Record<Variant['name'], Record<string, number>[]>;
 }
 
 const options = parseOptions(process.argv.slice(2));
@@ -156,7 +158,7 @@ async function prepareBare(work: string): Promise<{ executable: string; distribu
 async function launch<T>(
   variant: Variant,
   measure: (child: ChildProcess) => Promise<T>,
-): Promise<{ readyMs: number; value: T }> {
+): Promise<{ readyMs: number; value: T; marks: Record<string, number> }> {
   const work = mkdtempSync(join(tmpdir(), `perf-${variant.name}-`));
   const report = join(work, 'report.json');
   const args = [
@@ -176,10 +178,14 @@ async function launch<T>(
       if (Date.now() > deadline) throw new Error(`${variant.name} was not ready within 60 s`);
       await sleep(10);
     }
-    const ready = JSON.parse(readFileSync(report, 'utf8')) as { ok: boolean; readyAt: number };
+    const ready = JSON.parse(readFileSync(report, 'utf8')) as {
+      ok: boolean;
+      readyAt: number;
+      marks?: Record<string, number>;
+    };
     if (!ready.ok) throw new Error(`${variant.name} reported a failed start`);
     const value = await measure(child);
-    return { readyMs: ready.readyAt - spawnedAt, value };
+    return { readyMs: ready.readyAt - spawnedAt, value, marks: ready.marks ?? {} };
   } finally {
     await stopTree(child);
     rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
@@ -196,8 +202,11 @@ async function measureStartup(variants: readonly Variant[], m: Measurements): Pr
   for (let i = 0; i < warmup + options.runs; i += 1) {
     // Alternate the order, so neither variant always runs on a cache the other warmed.
     for (const variant of i % 2 === 0 ? variants : variants.toReversed()) {
-      const { readyMs } = await launch(variant, () => Promise.resolve());
-      if (i >= warmup) m.startupMs[variant.name].push(readyMs);
+      const { readyMs, marks } = await launch(variant, () => Promise.resolve());
+      if (i >= warmup) {
+        m.startupMs[variant.name].push(readyMs);
+        m.marks[variant.name].push(marks);
+      }
     }
   }
 }
@@ -384,6 +393,17 @@ async function measured(
   return checks;
 }
 
+function medianMarks(runs: readonly Record<string, number>[]): Record<string, number> {
+  const names = [...new Set(runs.flatMap((marks) => Object.keys(marks)))];
+  return Object.fromEntries(names.map((name) => [name, median(runs.map((r) => r[name] ?? 0))]));
+}
+
+function markLine(runs: readonly Record<string, number>[]): string {
+  return Object.entries(medianMarks(runs))
+    .map(([name, value]) => `${name} ${value.toFixed(0)} ms`)
+    .join(' · ');
+}
+
 function table(checks: readonly Check[]): string {
   const rows = checks.map(
     (c) => `| ${c.metric} | ${c.value} | ${c.budget} | ${c.pass ? 'pass' : '**fail**'} |`,
@@ -403,6 +423,7 @@ async function main(): Promise<void> {
       startupMs: { browser: [], bare: [] },
       memoryBytes: { browser: [], bare: [] },
       cpuPercent: { browser: [], bare: [] },
+      marks: { browser: [], bare: [] },
     };
     const checks = [
       ...bundleChecks(),
@@ -414,6 +435,7 @@ async function main(): Promise<void> {
         measureStartup,
         (r) => {
           r.startupMs = { browser: [], bare: [] };
+          r.marks = { browser: [], bare: [] };
         },
         startupChecks,
       )),
@@ -444,6 +466,7 @@ async function main(): Promise<void> {
       cpus: cpus().length,
       memoryMetric,
       options,
+      marks: { browser: medianMarks(m.marks.browser), bare: medianMarks(m.marks.bare) },
       startupMs: {
         browser: { median: median(m.startupMs.browser), p90: percentile(m.startupMs.browser, 90) },
         bare: { median: median(m.startupMs.bare), p90: percentile(m.startupMs.bare, 90) },
@@ -452,7 +475,10 @@ async function main(): Promise<void> {
       checks,
     };
     writeFileSync(options.out, `${JSON.stringify(result, null, 2)}\n`);
-    const summary = `## Performance (${process.platform} ${process.arch})\n\n${table(checks)}\n`;
+    const summary =
+      `## Performance (${process.platform} ${process.arch})\n\n${table(checks)}\n\n` +
+      `Start-up marks since process start (median): browser ${markLine(m.marks.browser)}; ` +
+      `bare ${markLine(m.marks.bare)}\n`;
     console.log(summary);
     const stepSummary = process.env['GITHUB_STEP_SUMMARY'];
     if (stepSummary !== undefined) appendFileSync(stepSummary, summary);
