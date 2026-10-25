@@ -1,0 +1,78 @@
+{
+  "name": "update-spike",
+  "productName": "UpdateSpike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "dependencies": {
+    "electron-updater": "6.8.11"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "io.github.secoolioo.updatespike",
+    "productName": "UpdateSpike",
+    "directories": {
+      "output": "dist/${version}"
+    },
+    "files": [
+      "main.mjs",
+      "provider.mjs",
+      "variant.json",
+      "keys/**",
+      "package.json"
+    ],
+    "electronLanguages": [
+      "en-US",
+      "de"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "http://127.0.0.1:8765/"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "update-spike-windows-${arch}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "update-spike-linux-${arch}.${ext}",
+      "category": "Network"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "update-spike-macos-${arch}.${ext}",
+      "notarize": false
+    }
+  }
+}
