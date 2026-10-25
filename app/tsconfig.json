@@ -9,6 +9,9 @@
     },
     {
       "path": "src/domain"
+    },
+    {
+      "path": "src/platform"
     }
   ]
 }

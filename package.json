@@ -20,6 +20,7 @@
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
+    "@types/node": "24.19.2",
     "@vitest/coverage-v8": "5.0.5",
     "lefthook": "2.2.2",
     "markdownlint-cli2": "0.24.0",
