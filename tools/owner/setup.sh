@@ -177,11 +177,22 @@ create_keys() {
   # stable across updates until an Apple Developer ID replaces it.
   local mac_password
   mac_password=$(openssl rand -hex 24)
-  openssl req -x509 -newkey rsa:3072 -nodes -days 3650 \
-    -subj "/CN=$PRODUCT Code Signing" \
-    -addext "basicConstraints=critical,CA:false" \
-    -addext "keyUsage=critical,digitalSignature" \
-    -addext "extendedKeyUsage=critical,codeSigning" \
+  # A dedicated config: with -addext, the LibreSSL of macOS also adds its default CA
+  # extensions, and codesign rejects the duplicate as an unknown critical extension.
+  cat >"$work/macos-signing.cnf" <<CNF
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = $PRODUCT Code Signing
+[ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+subjectKeyIdentifier = hash
+CNF
+  openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 3650 -config "$work/macos-signing.cnf" \
     -keyout "$work/macos-signing.key" -out "$work/macos-signing.crt" 2>/dev/null
   openssl pkcs12 -export -inkey "$work/macos-signing.key" -in "$work/macos-signing.crt" \
     -name "$PRODUCT Code Signing" -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
