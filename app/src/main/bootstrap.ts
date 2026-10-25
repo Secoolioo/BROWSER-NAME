@@ -65,6 +65,8 @@ const blankUrl = 'about:blank';
  * @param layout - Where the bundled files are.
  */
 export async function bootstrap(layout: BundleLayout): Promise<void> {
+  // Milliseconds since process start at each step, for the self-test report.
+  const marks: Record<string, number> = { main: Math.round(performance.now()) };
   registerAppScheme();
   app.setName(brand.productName);
   app.userAgentFallback = cleanUserAgent(app.userAgentFallback);
@@ -94,6 +96,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     new JsonFilePolicyCache(join(userData, 'policy-cache.json')),
   );
   policies.refresh();
+  marks['policies'] = Math.round(performance.now());
 
   if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -102,6 +105,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(macMenu()) : null);
 
   await app.whenReady();
+  marks['ready'] = Math.round(performance.now());
   const lifecycle = new Lifecycle(logger, clock, {});
   const protocolHandler = new AppProtocol(layout.rendererDir, new Set(['shell', 'sandbox-help']));
   const internal = session.fromPartition(internalPartition);
@@ -146,6 +150,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   );
   const settings = new SettingsService(coreSettings, policies, store, logger);
   await settings.load();
+  marks['settings'] = Math.round(performance.now());
 
   const windows = new WindowManager({
     shellUrl: layout.devShellUrl ?? 'app://shell/',
@@ -168,10 +173,14 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   registerShellHandlers(router, windows, settings);
 
   const first = windows.open();
+  marks['window'] = Math.round(performance.now());
   lifecycle.advance('ready');
   const smokeReport = app.commandLine.getSwitchValue('smoke-test');
   if (smokeReport !== '') {
-    runSmokeTest(first, smokeReport, app.commandLine.hasSwitch('smoke-test-keep-running'));
+    runSmokeTest(first, smokeReport, {
+      keepRunning: app.commandLine.hasSwitch('smoke-test-keep-running'),
+      marks,
+    });
   }
   logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });
 

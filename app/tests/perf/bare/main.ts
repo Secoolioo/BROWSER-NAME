@@ -10,9 +10,11 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const reportPath = app.commandLine.getSwitchValue('smoke-test');
+const marks: Record<string, number> = { main: Math.round(performance.now()) };
 const toolbarHeight = 80;
 
 void app.whenReady().then(() => {
+  marks['ready'] = Math.round(performance.now());
   const window = new BaseWindow({ width: 1280, height: 800, backgroundColor: '#f7f7f8' });
   const ui = new WebContentsView({
     webPreferences: { partition: 'internal', sandbox: true, contextIsolation: true },
@@ -29,8 +31,10 @@ void app.whenReady().then(() => {
   window.contentView.addChildView(tab);
   window.on('resize', layout);
   layout();
+  marks['window'] = Math.round(performance.now());
   ui.webContents.once('did-finish-load', () => {
-    const report = { ok: true, shellReadyMs: Math.round(performance.now()), readyAt: Date.now() };
+    marks['shell'] = Math.round(performance.now());
+    const report = { ok: true, shellReadyMs: marks['shell'], readyAt: Date.now(), marks };
     if (reportPath !== '') {
       // Written in one step, so the harness never reads half a report.
       writeFileSync(`${reportPath}.tmp`, `${JSON.stringify(report)}\n`);

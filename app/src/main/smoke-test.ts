@@ -15,6 +15,8 @@ export interface SmokeReport {
   readonly shellReadyMs: number;
   /** Wall-clock time of that moment, so a harness can measure from the spawn. */
   readonly readyAt: number;
+  /** Milliseconds since process start at each start-up step. */
+  readonly marks: Readonly<Record<string, number>>;
   readonly shellUrl: string;
   /** Whether renderer processes run inside the Chromium sandbox. */
   readonly rendererSandboxed: boolean | 'unknown';
@@ -27,13 +29,16 @@ export interface SmokeReport {
  * performance harness keeps the browser running to measure it.
  * @param window - The first window.
  * @param reportPath - Where to write the report.
- * @param keepRunning - Whether the browser stays open after the report.
+ * @param options - Whether the browser stays open after the report, and the start-up marks
+ *   so far.
  */
 export function runSmokeTest(
   window: BrowserWindowController,
   reportPath: string,
-  keepRunning: boolean,
+  options: { readonly keepRunning: boolean; readonly marks: Readonly<Record<string, number>> },
 ): void {
+  const { keepRunning } = options;
+  let shellLoaded = -1;
   const errors: string[] = [];
   const finish = (shellReadyMs: number): void => {
     const report: SmokeReport = {
@@ -50,6 +55,7 @@ export function runSmokeTest(
       packaged: app.isPackaged,
       shellReadyMs,
       readyAt: Date.now(),
+      marks: { ...options.marks, shell: shellLoaded, rendered: shellReadyMs },
       shellUrl: window.shellContents.getURL(),
       rendererSandboxed: rendererSandboxed(window.shellContents),
       errors,
@@ -67,6 +73,7 @@ export function runSmokeTest(
     errors.push(`Shell failed to load: ${code} ${description}`);
   });
   window.shellContents.once('did-finish-load', () => {
+    shellLoaded = Math.round(performance.now());
     void window.shellContents
       .executeJavaScript('document.querySelector("app-shell") !== null')
       .then((rendered: unknown) => {
