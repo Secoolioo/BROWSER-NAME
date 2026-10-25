@@ -1,0 +1,160 @@
+# Builds the website from the repository and the published releases, signs a fresh update
+# feed and the package repositories, checks the links, deploys to GitHub Pages and verifies
+# the live result. Runs after every release workflow and weekly, so the feed signature never
+# expires. See docs/adr/0016-release-pipeline-without-bot-commits.md.
+name: Pages
+
+on:
+  workflow_call:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: release
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      releases: ${{ steps.collect.outputs.releases }}
+      sequence: ${{ steps.feed.outputs.sequence }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set the work folders
+        run: |
+          {
+            echo "RELEASES=$RUNNER_TEMP/releases"
+            echo "SITE=$RUNNER_TEMP/site"
+            echo "GNUPGHOME=$RUNNER_TEMP/gnupg"
+          } >>"$GITHUB_ENV"
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Install the repository tools
+        run: sudo apt-get update && sudo apt-get install -y rpm createrepo-c apt-utils
+      - name: Collect the published releases
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node tools/release/collect.ts --out "$RELEASES"
+          echo "releases=$(node -p 'require(process.argv[1]).releases.length' "$RELEASES/releases.json")" >>"$GITHUB_OUTPUT"
+      - name: Sign the update feed and the package repositories
+        id: feed
+        if: steps.collect.outputs.releases != '0'
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          LINUX_REPO_GPG_KEY: ${{ secrets.LINUX_REPO_GPG_KEY }}
+          DOWNLOAD_BASE: https://github.com/${{ github.repository }}/releases/download/
+        run: |
+          mkdir -p "$SITE"
+          sequence=$(date +%s)
+          key="$RUNNER_TEMP/update.pem"
+          (umask 077 && printf '%s\n' "$UPDATE_SIGNING_KEY" >"$key")
+          node tools/feed/feed.ts site --releases "$RELEASES/releases.json" --manifests "$RELEASES/manifests" \
+            --key "$key" --out "$SITE" --sequence "$sequence"
+          rm -f "$key"
+          echo "sequence=$sequence" >>"$GITHUB_OUTPUT"
+          mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
+          printf '%s\n' "$LINUX_REPO_GPG_KEY" | gpg --batch --import
+          mapfile -t specs <"$RELEASES/linux-releases.txt"
+          node tools/linux-repo/repo.ts build --site "$SITE" --download-base "$DOWNLOAD_BASE" "${specs[@]}"
+      - name: Build the website
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: |
+          if [[ "$(node -p 'require(process.argv[1]).releases.length' "$RELEASES/releases.json")" != 0 ]]; then
+            mkdir -p website/src/data website/public/media
+            cp "$RELEASES/releases.json" website/src/data/releases.json
+            cp -R "$RELEASES/screenshots" website/public/media/
+          fi
+          pnpm --dir website run build
+          mkdir -p "$SITE"
+          cp -R website/dist/. "$SITE/"
+      - name: Check the links
+        env:
+          LYCHEE_VERSION: 0.24.2
+          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
+        run: |
+          archive="lychee-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}/$archive"
+          echo "$LYCHEE_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          # Pages serves the site below the repository path, so the check sees the same layout.
+          base=$(node -p "new URL(require('./brand.json').website).pathname")
+          stage="$RUNNER_TEMP/link-check"
+          mkdir -p "$stage$base"
+          cp -R "$SITE/." "$stage$base"
+          "$RUNNER_TEMP/lychee-x86_64-unknown-linux-gnu/lychee" --offline --no-progress \
+            --root-dir "$stage" "$stage/**/*.html"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    outputs:
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  verify-live:
+    name: verify-live
+    needs: [build, deploy]
+    if: needs.build.outputs.releases != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Check signatures and downloads
+        id: live
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.url }}
+          SEQUENCE: ${{ needs.build.outputs.sequence }}
+        run: |
+          node tools/release/verify-live.ts --site "$SITE_URL" --min-sequence "$SEQUENCE" | tee "$RUNNER_TEMP/live.txt"
+          grep -E '^(stable|beta)=' "$RUNNER_TEMP/live.txt" >>"$GITHUB_OUTPUT"
+      - name: Install from the live package repositories
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.url }}
+          STABLE: ${{ steps.live.outputs.stable }}
+          BETA: ${{ steps.live.outputs.beta }}
+        run: app/tests/linux-repos/live.sh "$SITE_URL" "$STABLE" "$BETA"

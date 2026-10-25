@@ -1,0 +1,99 @@
+---
+// The download button of the landing page. It links to the installer for the visitor's
+// operating system and architecture, which the browser reports; every other package is on the
+// download page. Before the first release it says so instead.
+import { LinkButton } from '@astrojs/starlight/components';
+import brand from '../../../brand.json';
+import { currentReleases, packagesOf, type Package } from '../lib/releases';
+
+const { stable, beta } = currentReleases();
+const release = stable ?? beta;
+const preferred: Record<string, string> = {
+  windows: 'Installer (.exe)',
+  macos: 'Disk image (.dmg)',
+  linux: 'AppImage',
+};
+const choices =
+  release === undefined
+    ? []
+    : packagesOf(release)
+        .filter((p: Package) => preferred[p.os] === p.format)
+        .map((p: Package) => ({ os: p.os, arch: p.arch, url: p.url }));
+const base = import.meta.env.BASE_URL;
+---
+
+{release === undefined && (
+  <p>
+    {brand.productName} is in early development. The first beta is being prepared; downloads
+    appear here with its release.
+  </p>
+)}
+{
+  release !== undefined && (
+    <div class="download" data-choices={JSON.stringify(choices)}>
+      <LinkButton href={`${base}download/`} icon="download" data-download>
+        Download {release.version}
+      </LinkButton>
+      <p>
+        <a href={`${base}download/`}>All packages and verification</a>
+        {beta !== undefined && stable !== undefined && (
+          <>
+            {' · '}
+            <a href={`${base}download/#beta`}>Beta {beta.version}</a>
+          </>
+        )}
+      </p>
+    </div>
+  )
+}
+
+<script>
+  interface Choice {
+    os: string;
+    arch: string;
+    url: string;
+  }
+  interface HighEntropy {
+    platform?: string;
+    architecture?: string;
+    bitness?: string;
+  }
+  const root = document.querySelector<HTMLElement>('.download');
+  const link = root?.querySelector<HTMLAnchorElement>('a[data-download]');
+  if (root !== null && root !== undefined && link !== null && link !== undefined) {
+    const choices = JSON.parse(root.dataset['choices'] ?? '[]') as Choice[];
+    const agent = navigator.userAgent;
+    let os = /Windows/.test(agent) ? 'windows' : /Mac OS X/.test(agent) ? 'macos' : /Linux/.test(agent) ? 'linux' : '';
+    let arch = /arm64|aarch64/i.test(agent) ? 'arm64' : 'x64';
+    const data = (navigator as Navigator & {
+      userAgentData?: { getHighEntropyValues(hints: string[]): Promise<HighEntropy> };
+    }).userAgentData;
+    const values = await data?.getHighEntropyValues(['platform', 'architecture', 'bitness']).catch(() => undefined);
+    if (values?.platform !== undefined) {
+      os = values.platform === 'Windows' ? 'windows' : values.platform === 'macOS' ? 'macos' : values.platform === 'Linux' ? 'linux' : os;
+    }
+    if (values?.architecture !== undefined) arch = values.architecture === 'arm' ? 'arm64' : 'x64';
+    // Safari reports an Intel Mac on Apple silicon; the arm64 build is the better default.
+    if (os === 'macos' && values === undefined) arch = 'arm64';
+    const choice = choices.find((c) => c.os === os && c.arch === arch);
+    if (choice !== undefined) {
+      const names: Record<string, string> = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
+      link.href = choice.url;
+      link.textContent = `${link.textContent ?? ''} for ${names[os] ?? os} (${arch})`;
+    }
+  }
+</script>
+
+<style>
+  .download {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    margin-block: 1rem 2rem;
+  }
+  .download p {
+    margin: 0;
+    font-size: var(--sl-text-sm);
+  }
+</style>

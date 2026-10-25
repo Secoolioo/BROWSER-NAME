@@ -15,7 +15,9 @@ The first version of the site builds the landing page, every page of `docs/`, th
 - `website/scripts/sync-docs.ts` turns `docs/` into pages at build time: the first heading becomes the title, links between Markdown files become links between pages, and links to other repository files point to GitHub. The synced pages are not committed.
 - starlight-typedoc does not run TypeDoc's validation. `pnpm --dir website run check:api` therefore runs TypeDoc itself with `website/typedoc.json`, and the site build reads its options from the same file. Members inherited from third-party classes are left out (`excludeExternals`), and documentation is required for declarations and methods but not for every interface property.
 - The website package depends on TypeScript 6.0.3 directly; no alias is needed because it is a separate workspace package.
-- Mermaid diagrams are rendered in the browser. The Mermaid render check and the lychee link check arrive with `pages.yml`.
+- The API reference has one page per module. With one page per member, the generated module index linked to pages that do not exist.
+- The download page and the download button on the landing page are built from the release data that `pages.yml` collects; without releases, as in pull requests, there is no download page.
+- Mermaid diagrams are rendered in the browser; a render check does not exist yet. `pages.yml` checks the links within the built site with lychee.
 - Astro 7 needs Node.js 22.23.4 or later; the repository uses Node.js 24 (`.node-version`).
 
 ## Context

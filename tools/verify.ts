@@ -75,7 +75,13 @@ const checks: readonly Check[] = [
   {
     name: 'shell',
     title: 'Shell scripts (ShellCheck)',
-    command: ['shellcheck', 'tools/owner/setup.sh', 'app/tests/linux-repos/run.sh'],
+    command: [
+      'shellcheck',
+      'tools/owner/setup.sh',
+      'tools/release/import-mac-certificate.sh',
+      'app/tests/linux-repos/run.sh',
+      'app/tests/linux-repos/live.sh',
+    ],
     optionalLocally: true,
   },
 ];

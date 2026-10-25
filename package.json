@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "lint:md": "markdownlint-cli2",
     "check:commits": "node tools/ci/check-commits.ts",
+    "release:prepare": "node tools/release/prepare.ts",
     "typecheck": "tsc --build app tools",
     "lint": "oxlint --type-aware --deny-warnings",
     "test": "pnpm --dir app exec vitest run",

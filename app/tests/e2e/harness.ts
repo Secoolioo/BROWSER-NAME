@@ -160,8 +160,9 @@ function waitForLine(child: ChildProcess, pattern: RegExp): Promise<RegExpExecAr
  * Starts the browser with a fresh profile and connects once its shell has rendered, which
  * the self-test report announces. `E2E_APP` points to a packaged test build; without it,
  * the development build in `out/` is started with the local Electron.
+ * @param extraArgs - Further command line switches, such as a device scale factor.
  */
-export async function launch(): Promise<Browser> {
+export async function launch(extraArgs: readonly string[] = []): Promise<Browser> {
   const profile = mkdtempSync(join(tmpdir(), 'e2e-profile-'));
   const report = join(profile, 'ready.json');
   const args = [
@@ -171,6 +172,7 @@ export async function launch(): Promise<Browser> {
     '--lang=en-US',
     `--smoke-test=${report}`,
     '--smoke-test-keep-running',
+    ...extraArgs,
   ];
   if (process.platform === 'linux' && process.getuid?.() === 0) args.push('--no-sandbox');
   const packaged = process.env['E2E_APP'];

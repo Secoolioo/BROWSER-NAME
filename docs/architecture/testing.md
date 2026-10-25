@@ -51,5 +51,6 @@ Running in CI on every pull request today:
 - **Performance:** the harness checks the first budgets against the bare reference (see [performance.md](performance.md#implementation-status)).
 - **Documentation:** Markdown lint, the strict TypeDoc check of every doc comment in `app/src`, and the website build, all in `pnpm verify`.
 - **Security:** zizmor and actionlint check the workflows.
+- **Releases:** every release runs the complete CI on the merged commit. After each Pages deployment, `verify-live` checks the signatures of the live feed and repositories and every download, and installs both channels from the live APT and DNF repositories.
 
-Not implemented yet: integration tests against real policy sources, component and accessibility tests, the remaining updater cases (hash mismatch, downgrade and expiry, which unit tests cover so far, and macOS), smoke tests on further distributions, the Mermaid render check, the link check and the i18n check.
+Not implemented yet: integration tests against real policy sources, component and accessibility tests, the remaining updater cases (hash mismatch, downgrade and expiry, which unit tests cover so far, and macOS), smoke tests on further distributions, the Mermaid render check and the i18n check. The link check runs in `pages.yml` and covers the links within the site.

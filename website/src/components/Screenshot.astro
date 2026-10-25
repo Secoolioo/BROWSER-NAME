@@ -1,0 +1,40 @@
+---
+// The screenshot of the newest release on the landing page, in the color scheme the visitor
+// chose. The release workflow takes it from the real browser; the Pages workflow copies it
+// to public/media/screenshots/latest/. Without it nothing is shown.
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+const folder = 'media/screenshots/latest';
+const available = ['light', 'dark'].every((theme) =>
+  existsSync(join(process.cwd(), 'public', folder, `screenshot-${theme}.png`)),
+);
+const base = import.meta.env.BASE_URL;
+const alt = 'The browser window showing the project website';
+---
+
+{
+  available && (
+    <figure class="screenshot">
+      <img class="light" src={`${base}${folder}/screenshot-light.png`} alt={alt} width="1280" height="820" />
+      <img class="dark" src={`${base}${folder}/screenshot-dark.png`} alt={alt} width="1280" height="820" />
+    </figure>
+  )
+}
+
+<style>
+  .screenshot {
+    margin: 0 0 2rem;
+  }
+  .screenshot img {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.75rem;
+    box-shadow: var(--sl-shadow-lg);
+  }
+  :global([data-theme='light']) .screenshot .dark,
+  :global([data-theme='dark']) .screenshot .light {
+    display: none;
+  }
+</style>
