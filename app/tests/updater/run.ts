@@ -235,9 +235,10 @@ async function quit(running: Running): Promise<void> {
   ]);
 }
 
+/** Whether an update installer or the rollback installer (`installer-<version>.exe`) runs. */
 function installerRunning(): boolean {
   const list = spawnSync('tasklist', ['/fo', 'csv', '/nh'], { encoding: 'utf8' }).stdout;
-  return list.toLowerCase().includes('-setup.exe');
+  return /-setup\.exe|"installer-/i.test(list);
 }
 
 /** Starts a build until it has downloaded an update, quits it and waits for the install. */
