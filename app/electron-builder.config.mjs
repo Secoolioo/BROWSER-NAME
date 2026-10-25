@@ -1,6 +1,6 @@
 // Packaging configuration for every format and architecture. Product names come from
 // brand.json; see docs/architecture/updates.md for the format strategy.
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,6 +14,26 @@ const output =
 // End-to-end tests drive the app through the inspector, which needs this one fuse. Shipped
 // packages always have it off.
 const e2e = process.env.E2E_BUILD === '1';
+
+// The deb and rpm scripts carry the product names and the repository URL; electron-builder
+// fills in its own macros afterwards.
+const scripts = mkdtempSync(join(tmpdir(), `${slug}-scripts-`));
+const linuxScript = (name) => {
+  const text = readFileSync(new URL(`build/linux/${name}.tpl`, import.meta.url), 'utf8')
+    .replaceAll('@SLUG@', slug)
+    .replaceAll('@PRODUCT@', productName)
+    .replaceAll('@WEBSITE@', brand.website)
+    .replaceAll('@ENV@', slug.toUpperCase().replaceAll('-', '_'));
+  const path = join(scripts, `${name}.tpl`);
+  writeFileSync(path, text);
+  return path;
+};
+const packageScripts = {
+  afterInstall: linuxScript('after-install'),
+  afterRemove: linuxScript('after-remove'),
+};
+// The public key of the package repositories, once the repository owner has created it.
+const repoKey = new URL('build/keys/linux-repo.pub.asc', import.meta.url);
 
 /** @type {import('electron-builder').Configuration} */
 export default {
@@ -86,6 +106,9 @@ export default {
     description: brand.tagline,
     executableArgs: [],
     syncDesktopName: true,
+    extraResources: existsSync(repoKey)
+      ? [{ from: 'build/keys/linux-repo.pub.asc', to: 'linux-repo.asc' }]
+      : [],
     artifactName: `${slug}-linux-\${arch}.\${ext}`,
     desktop: {
       entry: {
@@ -94,6 +117,6 @@ export default {
       },
     },
   },
-  deb: { packageCategory: 'web', priority: 'optional' },
-  rpm: { packageCategory: 'Applications/Internet' },
+  deb: { packageCategory: 'web', priority: 'optional', ...packageScripts },
+  rpm: { packageCategory: 'Applications/Internet', ...packageScripts },
 };
