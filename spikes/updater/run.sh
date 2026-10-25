@@ -18,20 +18,28 @@ BUILDER_ARGS=()
 
 if [ "$PLAT" = darwin ]; then
   # Self-signed code signing identity, as planned while no Developer ID exists.
-  openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 -nodes -keyout cs.key -out cs.crt \
-    -subj "/CN=Update Spike Signing" -addext "keyUsage=critical,digitalSignature" \
-    -addext "extendedKeyUsage=critical,codeSigning" -addext "basicConstraints=critical,CA:false"
+  # A dedicated config avoids default CA extensions that LibreSSL would add twice.
+  cat >cs.cnf <<'CNF'
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = Update Spike Signing
+[ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+subjectKeyIdentifier = hash
+CNF
+  openssl req -x509 -newkey rsa:3072 -sha256 -days 3650 -nodes -config cs.cnf -keyout cs.key -out cs.crt
+  openssl x509 -in cs.crt -noout -text | grep -A1 -E 'X509v3' | tee "$OUT/cert.txt"
   openssl pkcs12 -export -inkey cs.key -in cs.crt -out cs.p12 -passout pass:spike \
     -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1
-  security create-keychain -p spike spike.keychain
-  security set-keychain-settings -lut 21600 spike.keychain
-  security unlock-keychain -p spike spike.keychain
-  security import cs.p12 -k spike.keychain -P spike -T /usr/bin/codesign
-  security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k spike spike.keychain >/dev/null
-  # shellcheck disable=SC2046
-  security list-keychains -d user -s spike.keychain $(security list-keychains -d user | tr -d '"')
+  # Code signing identities must be trusted to be valid; electron-builder imports the p12
+  # into its own temporary keychain from CSC_LINK.
   sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain cs.crt
-  security find-identity -v -p codesigning | tee "$OUT/identities.txt"
+  export CSC_LINK="$PWD/cs.p12" CSC_KEY_PASSWORD=spike
   BUILDER_ARGS=(-c.mac.identity="Update Spike Signing")
 fi
 
@@ -62,7 +70,13 @@ case "$PLAT" in
     MSYS_NO_PATHCONV=1 "${installer[0]}" /S
     find "$LOCALAPPDATA/Programs" -maxdepth 2 | tee -a "$OUT/install.txt"
     find "$LOCALAPPDATA" -maxdepth 2 -iname '*updater*' | tee -a "$OUT/install.txt"
-    APP="$LOCALAPPDATA/Programs/UpdateSpike/UpdateSpike.exe"
+    APP=
+    for _ in $(seq 1 60); do
+      APP=$(find "$LOCALAPPDATA/Programs" -maxdepth 2 -name UpdateSpike.exe | head -1)
+      [ -n "$APP" ] && break
+      sleep 1
+    done
+    echo "installed at $APP" | tee -a "$OUT/results.txt"
     ;;
   darwin)
     mkdir -p "$HOME/Applications"
