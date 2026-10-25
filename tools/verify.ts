@@ -20,6 +20,8 @@ interface Check {
    * CI always runs it.
    */
   readonly optionalLocally?: boolean;
+  /** Extra environment variables for the command. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 const checks: readonly Check[] = [
@@ -58,6 +60,17 @@ const checks: readonly Check[] = [
     name: 'test',
     title: 'Unit and integration tests with coverage (Vitest)',
     command: ['pnpm', '--dir', 'app', 'exec', 'vitest', 'run', '--coverage'],
+  },
+  {
+    name: 'api',
+    title: 'API documentation comments (TypeDoc)',
+    command: ['pnpm', '--dir', 'website', 'run', 'check:api'],
+  },
+  {
+    name: 'website',
+    title: 'Website build (Astro)',
+    command: ['pnpm', '--dir', 'website', 'run', 'build'],
+    env: { ASTRO_TELEMETRY_DISABLED: '1' },
   },
   {
     name: 'shell',
@@ -120,6 +133,7 @@ function main(): number {
     const result = spawnSync(executable, args, {
       stdio: 'inherit',
       shell: process.platform === 'win32',
+      env: { ...process.env, ...check.env },
     });
     if (result.status !== 0) {
       console.error(`\n✖ ${check.title} failed`);

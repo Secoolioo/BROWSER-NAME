@@ -15,7 +15,12 @@ export interface BootState {
 
 /** Reads and writes the boot state. */
 export interface BootStateStore {
+  /** Returns the stored state, or an empty state when none is stored. */
   read(): BootState;
+  /**
+   * Replaces the stored state.
+   * @param state - The new state.
+   */
   write(state: BootState): void;
 }
 

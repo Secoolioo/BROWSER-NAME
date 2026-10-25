@@ -81,7 +81,6 @@ export class WindowsRegistryPolicyProvider implements PolicyProvider {
     this.root = root;
   }
 
-  /** {@inheritDoc PolicyProvider.load} */
   load(): PolicyReadResult {
     const values: RawPolicyValue[] = [];
     const errors: PolicyReadError[] = [];
@@ -131,7 +130,6 @@ export class MacManagedPreferencesPolicyProvider implements PolicyProvider {
     this.userName = userName;
   }
 
-  /** {@inheritDoc PolicyProvider.load} */
   load(): PolicyReadResult {
     const values: RawPolicyValue[] = [];
     const errors: PolicyReadError[] = [];
@@ -190,7 +188,6 @@ export class LinuxJsonPolicyProvider implements PolicyProvider {
     this.directory = directory;
   }
 
-  /** {@inheritDoc PolicyProvider.load} */
   load(): PolicyReadResult {
     const values: RawPolicyValue[] = [];
     const errors: PolicyReadError[] = [];
@@ -233,7 +230,6 @@ export class JsonFilePolicyCache implements PolicyCache {
     this.path = path;
   }
 
-  /** {@inheritDoc PolicyCache.read} */
   read(): readonly RawPolicyValue[] | undefined {
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
@@ -243,7 +239,6 @@ export class JsonFilePolicyCache implements PolicyCache {
     }
   }
 
-  /** {@inheritDoc PolicyCache.write} */
   write(values: readonly RawPolicyValue[]): void {
     try {
       mkdirSync(dirname(this.path), { recursive: true });

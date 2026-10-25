@@ -18,7 +18,6 @@ export class Ed25519Verifier implements SignatureVerifier {
     return this.keys.length > 0;
   }
 
-  /** {@inheritDoc SignatureVerifier.verify} */
   verify(data: string, signature: string): boolean {
     const bytes = Buffer.from(data, 'utf8');
     const signatureBytes = Buffer.from(signature, 'base64');
