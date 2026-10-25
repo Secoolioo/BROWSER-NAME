@@ -1,0 +1,38 @@
+# Applies the repository settings from tools/owner/setup.sh. Started by the
+# owner from the Actions tab after adding the repository secret OWNER_TOKEN
+# (fine-grained token for this repository with Administration, Contents,
+# Environments, Pages, Pull requests, Secrets, Variables and Workflows set to
+# read and write). The run moves the token into the protected environments.
+name: Repository setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      maintainers:
+        description: GitHub logins to invite as maintainers, comma-separated (optional)
+        required: false
+        default: ''
+
+permissions: {}
+
+concurrency:
+  group: repo-setup
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: setup
+    if: github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Apply settings
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_TOKEN }}
+          OWNER_TOKEN: ${{ secrets.OWNER_TOKEN }}
+          MAINTAINERS: ${{ inputs.maintainers }}
+        run: bash tools/owner/setup.sh --skip-keys --move-token --maintainers "$MAINTAINERS"

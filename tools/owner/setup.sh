@@ -6,6 +6,12 @@
 #
 # Usage:
 #   bash tools/owner/setup.sh [--maintainers <login>[,<login>]] [--skip-keys] [--keys-only]
+#                             [--move-token]
+#
+# --move-token copies the repository secret OWNER_TOKEN (read from the
+# environment variable of the same name) into the `automation` and `release`
+# environments and deletes the repository-level secret. The `Repository
+# setup` workflow uses it so that the setup can be started from the browser.
 #
 # The script is idempotent: running it again updates settings in place.
 # Private keys are only stored as GitHub environment secrets and in an
@@ -15,12 +21,14 @@ set -euo pipefail
 MAINTAINERS=""
 SKIP_KEYS=false
 KEYS_ONLY=false
+MOVE_TOKEN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --maintainers) MAINTAINERS="${2:-}"; shift 2 ;;
     --skip-keys) SKIP_KEYS=true; shift ;;
     --keys-only) KEYS_ONLY=true; shift ;;
-    -h | --help) sed -n '2,13p' "$0"; exit 0 ;;
+    --move-token) MOVE_TOKEN=true; shift ;;
+    -h | --help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -58,13 +66,15 @@ if [[ "$LOGIN" != "$OWNER" ]]; then
   exit 1
 fi
 
-CURRENT=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+CURRENT=${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq '.nameWithOwner')}
 
 configure_repository() {
   step "Repository name, description and topics"
   if [[ "${CURRENT#*/}" != "$NAME" ]]; then
     gh repo rename "$NAME" --repo "$CURRENT" --yes
-    git remote set-url origin "https://github.com/$REPO.git"
+    if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
+      git remote set-url origin "https://github.com/$REPO.git"
+    fi
   fi
   gh repo edit "$REPO" \
     --description "$TAGLINE" \
@@ -228,8 +238,23 @@ create_keys() {
   echo "Public keys written to $out. Share them with the maintainers; they are committed to the repository."
 }
 
+move_token() {
+  step "Owner token into environments"
+  if [[ -z "${OWNER_TOKEN:-}" ]]; then
+    echo "OWNER_TOKEN is not set; nothing to move." >&2
+    exit 1
+  fi
+  printf '%s' "$OWNER_TOKEN" | gh secret set OWNER_TOKEN --env automation --repo "$REPO"
+  printf '%s' "$OWNER_TOKEN" | gh secret set OWNER_TOKEN --env release --repo "$REPO"
+  gh secret delete OWNER_TOKEN --repo "$REPO"
+  echo "OWNER_TOKEN now lives only in the automation and release environments."
+}
+
 if [[ "$KEYS_ONLY" != true ]]; then
   configure_repository
+fi
+if [[ "$MOVE_TOKEN" == true ]]; then
+  move_token
 fi
 if [[ "$SKIP_KEYS" != true ]]; then
   create_keys
