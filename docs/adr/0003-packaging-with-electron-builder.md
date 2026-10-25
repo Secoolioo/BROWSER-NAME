@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-Lampo ships on Windows, macOS and Linux, on x64 and arm64, and must be installable by private users as well as by IT departments. That requires a wide set of formats: a per-user installer and a per-machine MSI on Windows, dmg and zip on macOS, and AppImage, deb and rpm on Linux. Every package needs the same security hardening, must be signable as soon as certificates are available, and has to work with the update chain in [ADR 0014](0014-update-architecture-with-signed-feed.md) and the package repositories in [ADR 0015](0015-linux-package-repositories.md).
+Lampo ships on Windows, macOS and Linux, on x64 and arm64, and must be installable by home users as well as by IT departments. That requires a wide set of formats: a per-user installer and a per-machine MSI on Windows, dmg and zip on macOS, and AppImage, deb and rpm on Linux. Every package needs the same security hardening, must be signable as soon as certificates are available, and has to work with the update chain in [ADR 0014](0014-update-architecture-with-signed-feed.md) and the package repositories in [ADR 0015](0015-linux-package-repositories.md).
 
 ## Decision
 
@@ -18,7 +18,7 @@ Lampo packages all formats with electron-builder 26.18.x. Version 27 is evaluate
 
 | Platform | Formats                               | Architectures                   | Notes                                                                                                     |
 | -------- | ------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Windows  | NSIS (per-user, no admin rights)      | x64, arm64                      | Default for private users                                                                                 |
+| Windows  | NSIS (per-user, no admin rights)      | x64, arm64                      | Default for home users                                                                                    |
 | Windows  | MSI (per-machine)                     | x64                             | Stable releases only; arm64 uses NSIS until a dedicated WiX template arrives in M5                        |
 | macOS    | dmg for installation, zip for updates | x64, arm64 (separate builds)    | Signed with a stable self-signed certificate until a Developer ID is available, then signed and notarized |
 | Linux    | AppImage, deb, rpm                    | x86_64 / amd64, arm64 / aarch64 | deb and rpm are served from Lampo's own repositories                                                      |
@@ -27,12 +27,12 @@ The configuration lives in `app/build/` and follows these rules:
 
 - Fuses are set through `electronFuses`: `runAsNode` off, `enableCookieEncryption` on from the first release, `enableNodeOptionsEnvironmentVariable` off, `enableNodeCliInspectArguments` off, `enableEmbeddedAsarIntegrityValidation` on, `onlyLoadAppFromAsar` on, `grantFileProtocolExtraPrivileges` off. The package smoke test reads them back from every built binary.
 - The MSI is a native MSI, not `msiWrapped`: `perMachine: true`, a fixed and explicit `upgradeCode` that never changes, a major upgrade with downgrade protection, and the properties `INSTALLDIR` and `DESKTOP_SHORTCUT=0` added through the `msiProjectCreated` hook.
-- `electronLanguages` is limited to the shipped languages, which saves up to 12.8 MB compressed on Windows; the asar archive unpacks as little as possible.
+- `electronLanguages` is limited to the shipped UI languages, English and German, which saves up to 12.8 MB compressed on Windows; the asar archive unpacks as little as possible.
 - Asset names carry no version (for example `lampo-windows-x64-setup.exe`, `lampo-macos-arm64.dmg`, `lampo-linux-x86_64.AppImage`), so `releases/latest/download/<asset>` links stay stable. Names derive from `brand.json`.
 - deb and rpm encode prereleases as `X.Y.Z~beta.N` so they sort before the final release.
 - deb and rpm include an AppArmor profile with `userns` and a SUID sandbox fallback, so the Chromium sandbox works on Ubuntu 24.04 and later.
 - Signing runs through electron-builder's signing hooks only when the signing secrets are present; without them, every format is built unsigned.
-- Every format and architecture is built on a native runner of that architecture.
+- Every format and architecture is built on a native runner, except macOS x64, which is built on an arm64 runner and smoke-tested on an Intel runner.
 
 ## Consequences
 
@@ -44,7 +44,7 @@ Positive:
 
 Negative:
 
-- electron-builder cannot update an MSI installation, so MSI installs are updated by IT ([ADR 0014](0014-update-architecture-with-signed-feed.md)).
+- electron-updater cannot update an MSI installation, so MSI installs are updated by IT ([ADR 0014](0014-update-architecture-with-signed-feed.md)).
 - For arm64, electron-builder marks the MSI as x64, which is why arm64 MSI support waits for a dedicated WiX template.
 - Lampo depends on the pace and quality of a single community-maintained tool; a major upgrade of electron-builder needs the full package smoke and updater test matrix.
 - Packages are large because Electron dominates their size; the budgets in [ADR 0017](0017-performance-budgets-in-ci.md) compare against bare Electron packages of the same format.

@@ -76,7 +76,7 @@ A recommended policy does not lock anything. It only changes the value a user st
 
 The settings page (`app://settings`) is generated from the setting definitions:
 
-- **Search** covers titles, descriptions and keywords in both shipped languages (`en` and `de`), including synonyms. Every setting is designed to be findable by its title in either language and by its keywords.
+- **Search** covers titles, descriptions and keywords in both shipped languages, English and German, including synonyms. Every setting is designed to be findable by its title in either language and by its keywords.
 - **Deep links** open a single setting, for example `app://settings/#tabs.position`.
 - **Modified** lists every setting whose value differs from its default.
 - **Export and import** use JSON with a version and schema check. Exports never contain secrets, and an export followed by an import is designed to be lossless.
@@ -102,7 +102,7 @@ Code generators read the same module manifests and produce:
 
 ADMX/ADML templates, JSON Schemas and the policy documentation are build outputs, not checked-in sources. They are published as release assets and deployed to the website.
 
-CI runs a drift check in every pull request: it regenerates every artifact and fails when anything is stale or when a generator does not produce deterministic output.
+CI will run a drift check in every pull request: it will regenerate every artifact and fail when anything is stale or when a generator does not produce deterministic output.
 
 ## Themes
 

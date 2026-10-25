@@ -2,7 +2,7 @@
 
 > **Status:** approved design. Nothing described here is implemented or released yet. Structure and decisions are written in the present tense; runtime behavior is described as what the system will do.
 
-Lampo is designed to update itself on every supported platform without dialogs. A signed feed decides _what_ gets installed. Depending on the package format, electron-updater, the operating system's package manager or the IT department decides _how_ it gets installed. The decision records are ADR 0014 (update architecture with signed feed) and ADR 0015 (Linux package repositories); see the [decision record index](../adr/README.md).
+Lampo is designed to update itself on every supported platform without dialogs. A signed feed decides _what_ gets installed. Depending on the package format, electron-updater, the operating system's package manager or the IT department decides _how_ it gets installed. The decision records are ADR 0014 (update architecture with a signed feed) and ADR 0015 (Linux package repositories); see the [decision record index](../adr/README.md).
 
 ## Overview
 
@@ -152,20 +152,20 @@ Updates must never destroy data. Every data migration takes a snapshot first, an
 
 ## Strategy per package format
 
-| Format                                                          | First install                                                    | Update                                                                 | Delta                                                            | Silent                    | Rollback                                                        |
-| --------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------- | --------------------------------------------------------------- |
-| **Windows NSIS** (per user, default for home users; x64, arm64) | `lampo-windows-<arch>-setup.exe`, no administrator rights        | electron-updater `NsisUpdater` through the signed feed                 | yes (blockmap)                                                   | yes, without a UAC prompt | reinstall the previous version from its verified installer      |
-| **Windows MSI** (per machine, organizations; x64; stable only)  | `msiexec /i … /qn` with `ALLUSERS=1` and a fixed `UpgradeCode`   | managed by IT; the in-app updater is off                               | no                                                               | yes, through IT tooling   | by IT, with `ALLOWDOWNGRADE`                                    |
-| **macOS** (dmg to install, zip to update; x64 and arm64 apart)  | open the dmg and drag the app to Applications                    | electron-updater `MacUpdater` (Squirrel.Mac), signed and notarized     | yes (zip blockmap; the first update after a dmg install is full) | yes                       | APFS clone of the current bundle, swapped back by a helper      |
-| **Linux AppImage** (x86_64, arm64)                              | download, mark as executable; static runtime, no libfuse2 needed | electron-updater `AppImageUpdater` replaces the file in place          | yes (blockmap)                                                   | yes                       | `.previous` copy, swapped back immediately                      |
-| **Linux deb** (amd64, arm64)                                    | `apt install ./lampo-linux-<arch>.deb`                           | Lampo APT repository, together with system updates; in-app updater off | no                                                               | yes, with system updates  | `apt install lampo=<previous>`; the repository keeps 2 versions |
-| **Linux rpm** (x86_64, aarch64)                                 | `dnf install` with the downloaded `.rpm` file                    | Lampo DNF repository, together with system updates                     | no                                                               | yes                       | `dnf downgrade`                                                 |
+| Format                                                                   | First install                                                    | Update                                                                                           | Delta                                                            | Silent                    | Rollback                                                        |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------- | --------------------------------------------------------------- |
+| **Windows NSIS** (per user, default for home users; x64, arm64)          | `lampo-windows-<arch>-setup.exe`, no administrator rights        | electron-updater `NsisUpdater` through the signed feed                                           | yes (blockmap)                                                   | yes, without a UAC prompt | reinstall the previous version from its verified installer      |
+| **Windows MSI** (per machine, organizations; x64; stable only)           | `msiexec /i … /qn` with `ALLUSERS=1` and a fixed `UpgradeCode`   | managed by IT; the in-app updater is off                                                         | no                                                               | yes, through IT tooling   | by IT, with `ALLOWDOWNGRADE`                                    |
+| **macOS** (dmg to install, zip to update; separate x64 and arm64 builds) | open the dmg and drag the app to Applications                    | electron-updater `MacUpdater` (Squirrel.Mac); needs a stable code signature, self-signed for now | yes (zip blockmap; the first update after a dmg install is full) | yes                       | APFS clone of the current bundle, swapped back by a helper      |
+| **Linux AppImage** (x86_64, arm64)                                       | download, mark as executable; static runtime, no libfuse2 needed | electron-updater `AppImageUpdater` replaces the file in place                                    | yes (blockmap)                                                   | yes                       | `.previous` copy, swapped back immediately                      |
+| **Linux deb** (amd64, arm64)                                             | `apt install ./lampo-linux-<arch>.deb`                           | Lampo APT repository, together with system updates; in-app updater off                           | no                                                               | yes, with system updates  | `apt install lampo=<previous>`; the repository keeps 2 versions |
+| **Linux rpm** (x86_64, aarch64)                                          | `dnf install` with the downloaded `.rpm` file                    | Lampo DNF repository, together with system updates                                               | no                                                               | yes                       | `dnf downgrade`                                                 |
 
 ### Windows NSIS
 
 - NSIS is the default for home users: a per-user installation without administrator rights, for x64 and arm64.
-- Spike 1 measures whether `nsis` with a blockmap or `nsis-web` with `differentialPackage` produces smaller deltas. Delta sizes will be published only after that measurement.
-- Unsigned installers trigger a SmartScreen warning on the **first installation**; updates run without it. The solution is Windows code signing (see [code signing](#code-signing)).
+- Spike 1 will measure whether `nsis` with a blockmap or `nsis-web` with `differentialPackage` produces smaller deltas. Delta sizes will be published only after that measurement.
+- Windows installers ship unsigned for now, so the **first installation** triggers a SmartScreen warning; updates run without it. The solution is Windows code signing (see [code signing](#code-signing)).
 
 ### Windows MSI
 
@@ -184,14 +184,14 @@ Updates must never destroy data. Every data migration takes a snapshot first, an
 - **Without an Apple Developer ID**, there are two paths:
   1. A self-signed certificate with a stable designated requirement, so that Squirrel.Mac and the Keychain keep working across updates. A CI updater test on macOS will verify this path in an M1 spike. The first start then needs a one-time "Open Anyway" in System Settings (macOS Sequoia and later).
   2. If the spike fails: the update will be downloaded and verified in the background and installed with one click from the menu.
-- **Recommendation:** the Apple Developer Program (99 USD per year, as of October 2026), for silent updates and notarization without the Gatekeeper hurdle.
+- **Current decision:** there is no code signing budget for now, so macOS uses path 1, with path 2 as the fallback if the spike fails. The Apple Developer Program (99 USD per year, as of October 2026) would add notarization and remove the Gatekeeper hurdle; once its secrets exist, the release workflow will sign and notarize automatically.
 
 ### Linux AppImage
 
 - The AppImage uses the static runtime, so libfuse2 is not required.
 - Ubuntu 24.04 and later restrict unprivileged user namespaces, which disables the Chromium sandbox for AppImages (as of October 2026).
 - Lampo will never fall back to `--no-sandbox` silently. Instead, it will show a page with a one-click fix and the recommendation to use the deb or rpm package.
-- The fix will use `pkexec` to install an AppArmor profile with `userns`. Because AppImages run from `/tmp/.mount_*`, the profile applies to `/tmp/.mount_*/lampo`; this scope is documented for users.
+- The fix will use `pkexec` to install an AppArmor profile with `userns`. Because AppImages run from `/tmp/.mount_*`, the profile applies to `/tmp/.mount_*/lampo`; this scope will be documented for users.
 - "Continue without sandbox" will be available only after explicit confirmation and will keep a permanent warning bar.
 - The fix will be tested on a host runner with the user namespace restriction enabled, not in a container.
 
@@ -234,11 +234,11 @@ These spikes are scheduled for the start of M1, before the first walking skeleto
 
 ## Code signing
 
-Code signing is designed into the release workflows from the start. Signing steps will run only when the corresponding secrets exist; without certificates, everything will be built unsigned. Once the secrets are added, releases will be signed automatically.
+Code signing is designed into the release workflows from the start. For now there is no code signing budget: macOS releases use the self-signed certificate path described below, and Windows releases ship unsigned. Signing steps will run only when the corresponding secrets exist; without certificates, everything will be built unsigned. Once the secrets are added, releases will be signed automatically.
 
 ### macOS signing
 
-- Without an Apple ID, a self-signed code signing certificate valid for 10 years keeps the designated requirement stable. The repository owner generates it locally with `tools/owner/setup.sh`.
+- Without an Apple Developer ID, a self-signed code signing certificate valid for 10 years keeps the designated requirement stable. The repository owner generates it locally with `tools/owner/setup.sh`.
 - Secrets for a Developer ID:
   - `CSC_LINK` and `CSC_KEY_PASSWORD`: the Developer ID Application certificate as `.p12`.
   - `APPLE_API_KEY`, `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`: an App Store Connect team key.
@@ -248,13 +248,13 @@ Code signing is designed into the release workflows from the start. Signing step
 
 ### Windows signing
 
-The release workflow is designed to support three options. The secret that is present selects the option:
+For now, Windows packages will ship unsigned. The release workflow is designed to support three options and to sign automatically as soon as the secret for one of them exists; the secret that is present selects the option:
 
 1. **SignPath Foundation:** free for open-source projects after an application; the certificate is issued to "SignPath Foundation".
    - The repository owner approves each release with one click in the SignPath interface. The release job will wait up to 24 hours for that approval.
    - Betas may be published unsigned. Fully automatic signing, including within the 24-hour target for critical security fixes, requires option 2 or 3.
 2. **Azure Artifact Signing:** about 9.99 USD per month; for individuals only in the USA and Canada, for organizations also in the EU (as of October 2026).
-3. **An own OV certificate** in a cloud HSM.
+3. **Lampo's own OV certificate** in a cloud HSM.
 
 With every option, `publisherName` is fixed, and the updater will check it fail-closed.
 

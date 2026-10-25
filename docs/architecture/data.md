@@ -27,7 +27,7 @@ Notes on the stores:
 - `profile.db` belongs to `data-service`, a utility process that also handles full-text search, favicons and import. It starts lazily and talks to the browser process over a `MessagePort`.
 - It uses `node:sqlite`, which is available without a flag in Node 24.22, the Node version in Electron 45 (as of October 2026). Because it is built in, no native module has to be rebuilt for each architecture or ABI. Its API is synchronous, but it runs in the utility process and therefore never blocks the browser's main thread.
 - Domain code accesses the database through the `IDatabase` port (`exec`, `transaction`) and through repositories such as `HistoryRepository` and `BookmarkRepository`.
-- Full-text search in the history is designed to answer in under 50 ms with 100 000 entries; this is one of the M1 acceptance criteria.
+- Full-text search in the history is designed to answer in under 50 ms with 100,000 entries; this is one of the M1 acceptance criteria.
 
 ## Writing safely
 

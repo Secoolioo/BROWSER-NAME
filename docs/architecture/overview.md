@@ -14,12 +14,12 @@ Each decision is recorded in an [architecture decision record](../adr/README.md)
 | Web content          | `BaseWindow` with one `WebContentsView` per tab; no `<webview>` tag and no `BrowserView`.                                                          | 0002 |
 | Language and build   | TypeScript in strict mode, limited to erasable syntax; Vite with electron-vite builds the main, preload and renderer code.                         | 0004 |
 | UI                   | Class-based web components with Lit, written without decorators; trivial leaf elements are plain `HTMLElement` classes.                            | 0005 |
-| Dependency injection | An own typed container with constructor injection and scopes, without reflection.                                                                  | 0006 |
+| Dependency injection | A custom typed container with constructor injection and scopes, without reflection.                                                                | 0006 |
 | IPC                  | Typed contracts with Valibot schemas, validated on every call.                                                                                     | 0007 |
 | Internal pages       | A privileged `app://` scheme served through `protocol.handle` and registered on every session.                                                     | 0008 |
 | Storage              | `node:sqlite` in a `utilityProcess`. An early spike will validate it on every platform and architecture; a prebuilt native module is the fallback. | 0009 |
 | Modules              | A microkernel with lazily loaded feature modules.                                                                                                  | 0010 |
-| Updates              | electron-updater as the installation engine behind an own Ed25519-signed update feed.                                                              | 0014 |
+| Updates              | electron-updater as the installation engine behind Lampo's own Ed25519-signed update feed.                                                         | 0014 |
 
 ## Process model
 
@@ -51,7 +51,7 @@ flowchart LR
 - **Browser process (Electron main):** the kernel. It owns the lifecycle, windows, tabs (`WebContentsView`), sessions and partitions, the network pipeline, settings, policies and updates. It stays lean: blocking work such as SQLite access, hashing and imports runs in a `utilityProcess`.
 - **Shell view (one renderer per window):** the entire browser interface as class-based web components, loaded from the privileged scheme `app://shell`. It runs sandboxed with `contextIsolation` and a minimal preload that exposes a typed bridge, never a generic `ipcRenderer`.
 - **Overlay view (lazy):** a transparent `WebContentsView` above the web content for menus, the command palette, omnibox suggestions and permission prompts. It solves the z-order problem that web views always sit above the shell's DOM. The overlay is created on first use and attached to the view tree **only while something is open**, because views are neither click-through nor focus-neutral. When it closes, the browser process returns focus to the page. Context menus are native (`Menu.popup()`).
-- **Tab views:** web content, sandboxed, with site isolation and **without a preload**. Feature scripts, such as the reader view, run only on demand in an isolated world. Mouse gestures use input events in the browser process instead of scripts injected into the page.
+- **Tab views:** web content, sandboxed, with site isolation and **without a preload**; the one planned exception is the content blocker's frame preload (M2, see [IPC](ipc.md)). Feature scripts, such as the reader view, run only on demand in an isolated world. Mouse gestures use input events in the browser process instead of scripts injected into the page.
 - **Internal pages** (`app://settings`, `app://history`, `app://downloads`, `app://theme-editor`, `app://diagnostics`, `app://newtab`): regular tabs with a capability-based preload. Each page receives only the IPC channels it needs.
 - **Data service (`utilityProcess`):** SQLite, full-text search, favicons and import. It starts lazily and talks to the browser process over a `MessagePort`. See [data](data.md).
 - **Updates:** electron-updater runs in the browser process with asynchronous I/O. Verifying the Ed25519 signature of the feed takes microseconds. See [updates](updates.md).
@@ -336,7 +336,7 @@ Patterns are used where they solve a concrete problem, not for decoration.
 | Pattern                 | Use                                                                                                                                                             |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Microkernel and plugins | The kernel plus feature modules (see [modules](modules.md)).                                                                                                    |
-| Dependency injection    | An own typed container with static `inject` lists and no reflection, about 200 lines of code. Scopes: app, window and module.                                   |
+| Dependency injection    | A custom typed container with static `inject` lists and no reflection, about 200 lines of code. Scopes: app, window and module.                                 |
 | Ports and adapters      | `domain` defines ports such as `IFileSystem`, `IKeyStore`, `IRegistry` and `IClock`; `platform` implements them. Tests use in-memory adapters.                  |
 | Command                 | `CommandRegistry`: shortcuts, the command palette, menus and the toolbar trigger the same commands. Undo for "reopen closed tab".                               |
 | Observer and event bus  | Typed domain events such as `TabActivated` and `SettingChanged`.                                                                                                |
@@ -347,7 +347,7 @@ Patterns are used where they solve a concrete problem, not for decoration.
 | Composite               | The split view layout tree and tab groups.                                                                                                                      |
 | Mediator                | `LayoutManager` coordinates shell insets, the tab bar position, the sidebar and the content bounds.                                                             |
 | Repository              | `HistoryRepository`, `BookmarkRepository` and others on top of `IDatabase`.                                                                                     |
-| Facade                  | `platform/electron/*` wraps the Electron APIs, so that Electron upgrades stay local to one folder.                                                              |
+| Facade                  | `platform/electron/*` wraps the Electron APIs, so that Electron upgrades stay local.                                                                            |
 
 ## Windows, tabs and workspaces
 

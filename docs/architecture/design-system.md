@@ -22,7 +22,7 @@ All colors are defined in OKLCH. The palette consists of:
 - neutral grays in 11 steps,
 - status colors.
 
-The final values are set together with the logo in the brand assets (`assets/brand/palette.json`). Hover, pressed and disabled states are not defined by hand; the theme engine derives them in OKLCH from the base tokens.
+The final values will be set together with the logo in the brand assets (`assets/brand/palette.json`). Hover, pressed and disabled states are not defined by hand; the theme engine derives them in OKLCH from the base tokens.
 
 Every text and UI color pair has to meet these contrast minimums, in line with WCAG 2.2 AA:
 

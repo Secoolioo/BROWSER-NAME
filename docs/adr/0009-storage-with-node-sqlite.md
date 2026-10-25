@@ -24,7 +24,7 @@ Lampo uses the built-in `node:sqlite` module, running in a dedicated `utilityPro
 - Before every migration, a snapshot is written with `VACUUM INTO`; the snapshots of the last two versions are kept.
 - An older app never opens a newer, unknown schema for writing. After a rollback it restores the matching snapshot instead.
 - Domain code accesses data through the `IDatabase` port and repositories such as `HistoryRepository` and `BookmarkRepository`; only the `data-service` touches SQLite directly.
-- Settings, the session, themes and logs stay in plain files with atomic writes; they do not need queries or full-text search.
+- Settings, the session, themes and logs stay in plain files (JSON stores written atomically, logs as rotating JSON Lines); they do not need queries or full-text search.
 
 **Day-one validation:** before any feature depends on the database, a validation spike confirms on Windows, macOS and Linux, each on x64 and arm64, that `node:sqlite` loads inside a `utilityProcess` of the packaged app and that FTS5, WAL and `VACUUM INTO` work.
 

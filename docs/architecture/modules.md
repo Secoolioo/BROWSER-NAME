@@ -29,7 +29,7 @@ Each feature module lives in its own folder, `app/src/modules/<id>/`:
 | `main/`                      | Code for the browser process. Built as its own chunk and loaded with `import()`.                                       |
 | `ui/`                        | Web components. Built as its own chunk and loaded only while the module is active.                                     |
 | `api/`                       | The public contract for other modules: tokens, types and IPC contracts.                                                |
-| `locales/`                   | JSON message catalogs, one file per language.                                                                          |
+| `locales/`                   | JSON message catalogs, one file per language (`en.json` and `de.json`).                                                |
 | `settings.ts`, `policies.ts` | The module's settings and policies.                                                                                    |
 | `migrations/`                | Migrations for the data the module stores (see [data.md](data.md)).                                                    |
 | `__tests__/`                 | The module's tests.                                                                                                    |
@@ -38,7 +38,7 @@ A generator, `pnpm new:module`, will create this layout together with test and d
 
 ## Manifest
 
-The manifest is the only part of a module that is always loaded. The manifest of the workspaces module is designed to look like this:
+The manifest, together with the pure-data `*.contrib.ts` files it imports, is the only part of a module that is always loaded. The manifest of the workspaces module is designed to look like this:
 
 ```ts
 export default defineModule({
@@ -144,7 +144,7 @@ Two tests are designed to pin this down: "module disabled, access still denied" 
 
 ## Lazy loading
 
-- Each module's `main/` and `ui/` folders are built as separate chunks and loaded with `import()` only when the module is activated. The manifest is the only module code in the start-up bundle.
+- Each module's `main/` and `ui/` folders are built as separate chunks and loaded with `import()` only when the module is activated. The manifest and the `*.contrib.ts` files it imports are the only module code in the start-up bundle.
 - The start-up path loads the boot guard, policies, settings and the window immediately; everything else is loaded with `import()` after the first paint (see [performance.md](performance.md)).
 - An automated test will verify that the chunks of disabled modules are never requested.
 
@@ -184,14 +184,14 @@ Lampo uses its own small, typed dependency injection container instead of a libr
 
 ### Typed tokens
 
-A token is a typed key created with `token<T>()`. The type travels with the token, so `resolve(token)` returns a `T` without casts, and a registration that does not match the token's type is designed to fail at compile time. Tokens for services that other modules may use are exported from the owning module's `api/` folder.
+A token is a typed key created with `token<T>(name)`. The type travels with the token, so `resolve(token)` returns a `T` without casts, and a registration that does not match the token's type is designed to fail at compile time. Tokens for services that other modules may use are exported from the owning module's `api/` folder.
 
 ### Constructor injection with static inject lists
 
 A class declares its dependencies in a static `inject` list. The container is designed to resolve each token in the list and pass the results to the constructor in the same order. The list is ordinary data, so nothing depends on emitted type metadata. The following sketch shows the intended shape:
 
 ```ts
-export const ITabService = token<ITabService>();
+export const ITabService = token<ITabService>('tabs');
 
 export class WorkspaceService implements IWorkspaceService {
   static readonly inject = [ITabService, ISettingsService] as const;

@@ -21,7 +21,7 @@ Lampo serves all of its own UI from a privileged custom scheme, `app://`.
 - `protocol.registerSource`, new and experimental in Electron 45, is evaluated as a way to serve these files without involving the main thread.
 - Each surface has its own host. The shell loads from `app://shell`; the overlay has its own host as well, and the internal pages are `app://settings`, `app://history`, `app://downloads`, `app://theme-editor`, `app://diagnostics` and `app://newtab`. Settings support deep links such as `app://settings/#tabs.position`.
 - Internal pages open as normal tabs with a capability-scoped preload; each page receives only the IPC channels it needs ([ADR 0007](0007-ipc-contracts-and-validation.md)).
-- All `app://` pages use a strict Content Security Policy and Trusted Types. Views load them with `v8CacheOptions: 'bypassHeatCheck'` so the code cache is used from the first start.
+- All `app://` pages use a strict Content Security Policy and Trusted Types. Views load them with `v8CacheOptions: 'bypassHeatCheck'` so the code cache is created on the first start and used from the next start on.
 - Shell, overlay and internal pages may never navigate away from `app://`; `will-navigate` and `will-redirect` enforce this.
 - Web tabs may not navigate to, embed or load any `app://` resource.
 

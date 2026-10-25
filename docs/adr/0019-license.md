@@ -22,7 +22,7 @@ Lampo is licensed under the Mozilla Public License 2.0.
 - **Compatible with GPL combinations:** Lampo does not attach Exhibit B ("Incompatible With Secondary Licenses"), so its code may be combined into larger works under GPL-2.0 or later, LGPL-2.1 or later and AGPL-3.0 or later, as section 3.3 of the license allows.
 - **Notice:** the full license text is in the `LICENSE` file at the repository root. Source files carry no per-file headers; Exhibit A allows the notice to be placed in a location such as a `LICENSE` file where a recipient would be likely to look for it. Packages ship the license together with the third-party notices.
 - **Contributions** are accepted under the same license, as stated in `CONTRIBUTING.md`; there is no separate contributor agreement.
-- **Dependencies** are checked against a license allowlist in CI as part of `ci-gate`. Libraries that would put the distributed browser under a stronger copyleft than MPL-2.0 are not used.
+- **Dependencies** will be checked against a license allowlist in CI as part of `ci-gate`. Libraries that would put the distributed browser under a stronger copyleft than MPL-2.0 are not used.
 - **Trademarks:** MPL-2.0 grants no rights to names or logos (section 2.3). The product name and logo stay outside the license grant; the name is kept in `brand.json`.
 - **Extensions (M4):** `electron-chrome-extensions` is not used, because it is licensed under GPL-3.0. Extension support is built on Electron's built-in extension support with Lampo's own `chrome.*` API shims and its own CRX3 signature verification, for a curated list of compatible extensions ([roadmap](../roadmap.md)).
 
@@ -38,7 +38,7 @@ Positive:
 Negative:
 
 - Protection against closed forks is weaker than with the GPL: a fork can keep its own new files closed.
-- Extension support needs more own code in M4, and the list of supported extension APIs is expected to start smaller than with the GPL library.
+- Extension support needs more of Lampo's own code in M4, and the list of supported extension APIs is expected to start smaller than with the GPL library.
 - Without per-file headers, a file copied out of the repository does not carry its notice; copies have to keep the `LICENSE` file with them.
 
 ## Alternatives considered
