@@ -2,5 +2,8 @@
   "name": "app",
   "private": true,
   "type": "module",
-  "description": "The browser application: kernel, domain, platform adapters, feature modules and UI."
+  "description": "The browser application: kernel, domain, platform adapters, feature modules and UI.",
+  "dependencies": {
+    "valibot": "1.5.0"
+  }
 }
