@@ -16,7 +16,7 @@ Astela needs a recognizable identity of its own and a UI that feels native on Wi
 
 Astela uses its own logo and wordmark, Lucide for UI icons and the system font stack for text.
 
-- **Logo and wordmark:** an original, geometric mark that works at 16 px and in one color, with a separate wordmark and no resemblance to other browsers' logos. The sources live in `assets/brand/` (`logo.svg`, `logo-mark.svg`, `wordmark.svg`, `palette.json`, `banner.svg` and the social preview), and the app icons for every platform are produced from them in `app/build/`. A rename replaces the wordmark; the mark itself does not depend on the name.
+- **Logo and wordmark:** an original, geometric mark that works at 16 px and in one color, with a separate wordmark and no resemblance to other browsers' logos. The sources will live in `assets/brand/` (`logo.svg`, `logo-mark.svg`, `wordmark.svg`, `palette.json`, `banner.svg` and the social preview), and the app icons for every platform will be produced from them in `app/build/`. A rename replaces the wordmark; the mark itself does not depend on the name.
 - **UI icons:** [Lucide](https://lucide.dev/) under the ISC license. Icons are imported one by one, so only icons that the UI uses end up in the bundle. They are drawn at 16 and 20 px with a 1.5 px stroke and take their color from the theme tokens ([ADR 0013](0013-theme-system-and-design-tokens.md)). The workspace icon picker offers a curated subset of the same set.
 - **UI font:** the system font stack, which costs zero bytes and matches each platform: Segoe UI Variable on Windows, SF Pro on macOS, Cantarell or Ubuntu on Linux, with `system-ui` as the fallback.
 
@@ -56,4 +56,4 @@ Negative:
 - **Other open icon sets such as Phosphor, Tabler or Heroicons:** suitable licenses; Lucide was chosen for the breadth of its outline set, and one set keeps the UI uniform.
 - **Icon fonts:** ship every glyph, are hard to tree-shake and expose icons to screen readers as stray characters.
 - **A bundled web font such as Inter:** adds bytes and load time and looks less native than the system font.
-- **An own icon set from the start:** a large design effort for a team of three; icons are referenced by name, so the set can still be replaced later.
+- **A custom icon set from the start:** a large design effort for a team of three; icons are referenced by name, so the set can still be replaced later.

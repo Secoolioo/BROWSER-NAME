@@ -43,7 +43,7 @@ Positive:
 
 Negative:
 
-- Spawning `reg` and `plutil` costs start-up time, which is why the 60 ms budget is measured in CI ([ADR 0017](0017-performance-budgets-in-ci.md)).
+- Spawning `reg` and `plutil` costs start-up time, which is why reading policies has a measured budget of 60 ms (see the [performance architecture](../architecture/performance.md)).
 - Without native notifications, policy changes are noticed only on focus or after up to 15 minutes until M5.
 - Parsing exported registry files and plists is more fragile than native APIs and needs tests with non-ASCII values and every value type.
 

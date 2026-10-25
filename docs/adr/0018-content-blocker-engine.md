@@ -12,7 +12,7 @@ Accepted
 
 The `content-blocker` module (M2, see the [roadmap](../roadmap.md)) blocks ads and trackers on the network level and hides page elements through cosmetic filters. It can be switched off per site, receives its filter lists through a signed feed, and adds malware and phishing protection with an interstitial page, because Electron has no Safe Browsing.
 
-Electron's extension support is a subset of Chrome's: there is no `declarativeNetRequest`, so the common blocker extensions cannot run as intended. Electron's `webRequest` API accepts only one listener per event and session; a second listener replaces the first. Astela already routes all requests through one `RequestPipeline` for policy URL filters, HTTPS-First and permissions ([security](../architecture/security.md)).
+Electron's extension support is a subset of Chrome's: there is no `declarativeNetRequest`, so the common blocker extensions cannot run as intended. Electron's `webRequest` API accepts only one listener per event and session; a second listener replaces the first. Astela is designed to route all requests through one `RequestPipeline` for policy URL filters, HTTPS-First and permissions ([security](../architecture/security.md)).
 
 `@ghostery/adblocker` is a filter engine in plain JavaScript under MPL-2.0. Its ready-made Electron wrapper has gaps: cosmetic filtering only in the top frame, no matching of main-frame requests, `$removeparam` is ignored, it overwrites other `webRequest` listeners, and it loads filter lists without signatures.
 

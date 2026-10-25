@@ -18,7 +18,7 @@ Tools such as release-please, changesets and semantic-release solve versioning b
 
 ## Decision
 
-Pull requests, merges, releases and deployments run under the repository owner's account through GitHub features that create no commits.
+Automation (pull requests and auto-merge for owner branches, releases and deployments) runs under the repository owner's account through GitHub features that create no bot commits.
 
 - **Pull requests in two stages** (in place today): `branch-push.yml` runs on pushes to the prefixes `feat/`, `fix/`, `perf/`, `refactor/`, `docs/`, `test/`, `build/`, `ci/` and `chore/` and runs `pnpm verify` without any secrets. When it succeeds, `auto-pr.yml` starts through `workflow_run`. It always runs in its version on `main`, never checks out branch code, checks the actor and the branch prefix, and uses `OWNER_TOKEN` from the `automation` environment, which only `main` may use. The token is a fine-grained personal access token of the repository owner, so pull requests and merges show the owner, not a bot or an app.
 - **Auto-merge** is enabled with the GraphQL mutation `enablePullRequestAutoMerge`: `mergeMethod: SQUASH`, the pull request title as `commitHeadline`, an empty `commitBody`, the owner's noreply address as `authorEmail`, and `expectedHeadOid` set to the verified head, so commits pushed later never merge unchecked.

@@ -19,7 +19,7 @@ The browser UI is spread over several renderers: one shell view per window, a la
 Design tokens are the only source of visual values, and themes are data files that override tokens.
 
 - **Tokens** live in `app/src/ui/ui-kit/tokens/` and cover colors, spacing, radii, shadows and motion. Components read them through CSS custom properties and contain no literal colors or sizes.
-- **Colors** are defined in OKLCH. The brand palette has an accent, an 11-step neutral scale and status colors; its values are kept in `assets/brand/palette.json` next to the logo ([ADR 0024](0024-icons-and-typography.md)).
+- **Colors** are defined in OKLCH. The brand palette has an accent, an 11-step neutral scale and status colors; its final values will be kept in `assets/brand/palette.json` next to the logo once the brand assets are added ([ADR 0024](0024-icons-and-typography.md)).
 - **Theme files** (`*.theme.json`) contain `$schema`, `id`, `name`, `version`, `base` (`light` or `dark`), `tokens` and an optional `newTab` background. The tokens cover accent, surfaces, text, borders, focus, tab and toolbar specifics, radius and optional transparency or vibrancy. The format is a Valibot schema with a generated JSON Schema ([ADR 0007](0007-ipc-contracts-and-validation.md)). User themes are stored as `themes/*.theme.json` in the profile ([data](../architecture/data.md)).
 - **Theme engine:** the `IThemeService` in the browser process resolves a theme, derives hover, pressed and disabled states in OKLCH and checks contrast against WCAG 2.2 AA (at least 4.5:1 for text, 3:1 for UI elements). It applies the resulting custom properties to the shell, the overlay and internal pages in the same frame.
 - **Import and export:** imported files are validated against the schema and take effect immediately. Export writes a canonical file, so exporting and re-importing a theme is byte-identical.
@@ -31,7 +31,7 @@ Design tokens are the only source of visual values, and themes are data files th
 - **Theme editor** (`app://theme-editor`): a token list for colors and radius with live preview on the real window, a contrast display that warns below 4.5:1, file import and export, and duplication of built-in themes. Gradients, background images and a local theme gallery follow in later milestones ([roadmap](../roadmap.md)).
 - The safe mode (`--safe-mode`) starts without user themes.
 
-Acceptance is automated where possible: contrast and axe checks, plus screenshot diffs of all four tab bar positions in light and dark on every pull request ([ADR 0022](0022-test-strategy.md)). Maintainers review the screenshot gallery once per minor release. The details are described in [settings, policy and theme](../architecture/settings-policy-theme.md) and in the [design system](../architecture/design-system.md).
+Acceptance is automated where possible: contrast and axe checks, plus screenshot diffs of all four tab bar positions in light and dark on every pull request ([ADR 0022](0022-test-strategy.md)). Maintainers review the screenshot gallery once per minor release. The details are described in [settings, policies and themes](../architecture/settings-policy-theme.md) and in the [design system](../architecture/design-system.md).
 
 ## Consequences
 

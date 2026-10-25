@@ -19,11 +19,11 @@ Each setting is defined exactly once, in the module that owns it, and every othe
 ```ts
 export const tabsPosition = defineSetting({
   key: 'tabs.position',
-  type: enumOf(['top', 'bottom', 'left', 'right']),
+  type: v.picklist(['top', 'bottom', 'left', 'right']),
   default: 'top',
   scope: 'global',
   policy: { name: 'TabStripPosition', recommendedAllowed: true },
-  ui: { section: 'appearance', control: 'segmented', keywords: ['tab bar', 'vertical tabs'] },
+  ui: { section: 'tabs', control: 'select', keywords: ['tab bar', 'vertical tabs'] },
   restartRequired: false,
 });
 ```
@@ -33,10 +33,10 @@ export const tabsPosition = defineSetting({
 - The scope is `global` or `workspace`.
 - **Resolution order:** default < recommended policy < user value < workspace override < mandatory policy. `inspect(key)` returns the effective value, its source and whether it is locked.
 - **Policies:** every setting with a `policy` attribute is automatically a policy. Locked values cannot be changed through the UI or the API, and the UI shows them with a lock and the label "Managed by your organization".
-- **Settings page:** generated from the schema, with search over titles, descriptions, keywords and synonyms in every shipped language, deep links such as `app://settings/#tabs.position`, and a "Modified" view that lists differences from the defaults.
+- **Settings page:** generated from the schema, with search over titles, descriptions, keywords and synonyms in English and German, deep links such as `app://settings/#tabs.position`, and a "Modified" view that lists differences from the defaults.
 - **Storage:** user values live in `settings.json` with a `$schemaVersion`. Writes are debounced and atomic (temporary file, `fsync`, rename). Invalid keys are moved to `settings.rejected.json`; nothing is deleted.
 - **Export and import:** JSON with version and schema checks, never containing secrets.
-- **Generated artifacts:** `settings.schema.json`, typed keys, the settings reference in the documentation, ADMX/ADML (en-US and de-DE), a `.mobileconfig` example, and the schema and an example for the Linux `policies.json`; a Jamf JSON schema follows in M2.
+- **Generated artifacts:** `settings.schema.json`, typed keys, the settings reference in the documentation, ADMX/ADML in English (`en-US`) and German (`de-DE`), a `.mobileconfig` example, and the schema and an example for the Linux `policies.json`; a Jamf JSON schema follows in M2.
 - Generated artifacts are not committed. They are built in CI, published as release assets and deployed to the website. A drift check ensures that the generators are deterministic.
 
 ## Consequences

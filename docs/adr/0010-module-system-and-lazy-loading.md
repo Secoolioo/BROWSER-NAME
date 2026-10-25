@@ -14,7 +14,7 @@ Astela aims to be lean by design: a feature that is turned off should cost nothi
 
 ## Decision
 
-Astela is a microkernel with feature modules. Each feature is a module in `src/modules/<id>/`:
+Astela is a microkernel with feature modules. Each feature is a module in `app/src/modules/<id>/`:
 
 - `manifest.ts`: static, purely declarative metadata; tiny and always bundled.
 - `main/`: code for the browser process, in its own chunk, loaded with `import()`.

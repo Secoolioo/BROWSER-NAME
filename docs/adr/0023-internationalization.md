@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-Astela ships with the locales `en` and `de` in M1, and every string in the UI, the settings search, native menus and the generated policy templates must exist in both. Adding a third language has to be possible without code changes. UI JavaScript has tight size budgets ([ADR 0017](0017-performance-budgets-in-ci.md)), and feature modules load lazily, so strings of a disabled module should not be loaded at all ([ADR 0010](0010-module-system-and-lazy-loading.md)).
+Astela ships its UI in English (`en`) and German (`de`) in M1, and every string in the UI, the settings search, native menus and the generated policy templates must exist in both. Adding a third language has to be possible without code changes. UI JavaScript has tight size budgets ([ADR 0017](0017-performance-budgets-in-ci.md)), and feature modules load lazily, so strings of a disabled module should not be loaded at all ([ADR 0010](0010-module-system-and-lazy-loading.md)).
 
 Electron 45 ships Chromium 156 with the complete `Intl` API: `PluralRules`, `NumberFormat`, `DateTimeFormat`, `RelativeTimeFormat` and `ListFormat`, in the browser process and in every renderer.
 
@@ -24,7 +24,7 @@ Astela uses the native `Intl` API with JSON message catalogs per locale and modu
 - **Completeness check:** a script in `pnpm verify` and CI checks that every key exists in every locale, that no orphaned keys remain and that placeholders match the source ([ADR 0022](0022-test-strategy.md)).
 - **New locale = JSON only:** a new language consists of catalog files and nothing else. The test suite proves this with a pseudo-locale. The list of Chromium locale files shipped through electron-builder's `electronLanguages` is derived from the locales present, which keeps the package small without extra configuration per language.
 - **Language selection:** the UI follows the system language and can be switched in the settings.
-- **Shared use:** settings titles, descriptions and keywords come from the catalogs, so the settings search works in every shipped language, including synonyms ([ADR 0011](0011-settings-schema-as-single-source.md)). The generated ADML templates for `en-US` and `de-DE` use the same texts ([enterprise](../architecture/enterprise.md)).
+- **Shared use:** settings titles, descriptions and keywords come from the catalogs, so the settings search works in English and German, including synonyms ([ADR 0011](0011-settings-schema-as-single-source.md)). The generated ADML templates for `en-US` and `de-DE` use the same texts ([enterprise](../architecture/enterprise.md)).
 - **MessageFormat 2** (the `messageformat` package) is adopted only if messages need more than placeholders and plurals, such as select or nested patterns. The catalog layout per module stays the same if it is adopted.
 
 ## Consequences

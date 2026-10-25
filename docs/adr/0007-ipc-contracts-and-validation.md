@@ -31,7 +31,7 @@ export const openTab = defineIpc({
 
 - **Router in main:** the `IpcRouter` runs a middleware chain for each message: (1) the sender must be a registered shell, overlay or internal view, checked through `event.senderFrame`, with an `app://` origin and as the top-level frame; (2) the view must hold the contract's capability; (3) the payload must match the request schema; (4) a per-channel rate limit applies. Messages that fail any step are dropped and logged locally.
 - **Preloads:** each view type gets its own minimal preload that exposes only `invoke(channel, payload)` and `subscribe(event)` for the channels its capability allows. The generic `ipcRenderer` is never exposed. A typed client is generated from the contracts.
-- **Capabilities:** internal pages receive only the channels they need, for example `page:settings` for the settings page. Web tabs have no preload and therefore no IPC access at all.
+- **Capabilities:** internal pages receive only the channels they need, for example `page:settings` for the settings page. Web tabs have no preload and no IPC access; the only planned exception is the content blocker's frame preload in M2, which receives its cosmetic rules over a validated IPC contract ([ADR 0018](0018-content-blocker-engine.md)).
 - **No synchronous IPC:** state flows from main to the UI as a snapshot followed by patches, batched per animation frame.
 - **JSON Schema:** `@valibot/to-json-schema` generates the published JSON Schemas for settings and themes from the same Valibot definitions ([ADR 0011](0011-settings-schema-as-single-source.md)).
 - **Fuzzing:** property-based tests with fast-check send invalid payloads to every contract ([ADR 0022](0022-test-strategy.md)).

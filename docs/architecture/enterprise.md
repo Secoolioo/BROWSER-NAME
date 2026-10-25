@@ -4,7 +4,7 @@
 
 Astela is designed to be manageable: every setting can be set and locked by policy, and the browser will ship with an MSI package, silent installation, update control, a diagnostics page and a safe mode. Organizations will get all of this without telemetry and without an account.
 
-The decisions behind this design are recorded in ADR 0003 (packaging with electron-builder), ADR 0012 (policy providers per OS) and ADR 0014 (update architecture with signed feed). See the [decision records](../adr/README.md).
+The decisions behind this design are recorded in ADR 0003 (packaging with electron-builder), ADR 0012 (policy providers per OS) and ADR 0014 (update architecture with a signed feed). See the [decision records](../adr/README.md).
 
 Related documents:
 
@@ -21,7 +21,7 @@ Related documents:
 | macOS    | Managed preferences (`/Library/Managed Preferences`) for the bundle ID `io.github.secoolioo.astela`.                                                                                                                            | Configuration profiles through MDM, for example Jamf.        |
 | Linux    | `/etc/astela/policies/managed/*.json` for mandatory policies and `/etc/astela/policies/recommended/*.json` for recommended policies. Files are merged in alphabetical order.                                                    | Any tool that can place files on the system.                 |
 
-The ADMX namespace is `Astela.Policies`. The namespace, the registry paths, the bundle ID and the Linux paths are permanent identifiers and will never change.
+The ADMX namespace is `Astela.Policies`. The namespace, the registry paths, the bundle ID and the Linux paths derive from `brand.json` and never change once released.
 
 Policy names follow Chrome's names where that makes sense, so that existing knowledge and tooling carry over.
 
@@ -73,7 +73,7 @@ M1 is designed to ship about 22 policies:
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | M2 Flow         | `HttpsOnlyMode`, `AuthNegotiateDelegateAllowlist`, `ManagedBookmarks`, `SpellcheckDictionaryURL`, cookie policies, `ClearBrowsingDataOnExit`, `PasswordManagerEnabled`, import policies, `CACertificates`, `SSLErrorOverrideAllowed`, capture policies and printing policies. Also a Jamf JSON schema. |
 | M4 Ecosystem    | Extension policies, for example `ExtensionInstallBlocklist`.                                                                                                                                                                                                                                           |
-| M5 Enterprise+  | `RollbackToTargetVersion` and an update maintenance window, as part of an extended set of at least 50 policies.                                                                                                                                                                                        |
+| M5 Enterprise+  | `RollbackToTargetVersion` and an update maintenance window, as part of an extended set of more than 50 policies.                                                                                                                                                                                       |
 | M6 Sync and 1.0 | Sync policies.                                                                                                                                                                                                                                                                                         |
 
 ## Network: proxy, DNS, certificates and single sign-on
@@ -89,7 +89,7 @@ Electron starts with DNS over HTTPS turned off (as of October 2026), so Astela i
 ### Certificates
 
 - Astela is designed to trust the Chrome Root Store plus root certificates that are trusted locally by the operating system.
-- On Windows and macOS, locally trusted roots are picked up automatically. On Linux, they come from the NSS database; the admin handbook will document the `certutil` steps.
+- On Windows and macOS, locally trusted roots are picked up automatically. On Linux, they come from the NSS database; the admin guide will document the `certutil` steps.
 - Client certificates are never selected automatically; the user always chooses one.
 - Certificate errors lead to Astela's own interstitial page.
 - From M2, `CACertificates` and `SSLErrorOverrideAllowed` give administrators direct control.
@@ -169,9 +169,9 @@ By design, Astela collects no telemetry and uploads no crash reports. Every outg
 - **Spell checking:** dictionaries are self-hosted from M2. In M1, spell checking is off on Windows and Linux, so nothing reaches third-party dictionary servers; macOS uses the system spell checker.
 - **Search suggestions:** opt-in.
 
-## Admin handbook
+## Admin guide
 
-An admin handbook (v1) is planned for M1. It will cover:
+An admin guide (v1) is planned for M1. It will cover:
 
 - **Installation:** MSI, NSIS, macOS (dmg, without a `.pkg` installer), deb and rpm, including silent installation flags.
 - **Policy reference:** generated from the setting and policy definitions, with examples for Group Policy, Intune (ADMX import and OMA-URI), Jamf and Linux.

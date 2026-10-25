@@ -46,7 +46,7 @@ How the harness measures:
 - **Start marks:** spawn, first main-process JavaScript, `ready`, window visible, shell first contentful paint and interactive mark, first tab painted. The first start after an update is excluded from the gates and reported separately.
 - **History without commits:** results are workflow artifacts, every release carries a `perf.json` asset, and the website shows the real numbers under `/features/performance` ([ADR 0020](0020-documentation-site-and-api-docs.md)).
 - **Calibration:** a weekly A/A run measures runner variance and adjusts the thresholds.
-- **Runners:** `ubuntu-24.04`, `windows-2025` and `macos-15`; on macOS only relative values gate.
+- **Runners:** `ubuntu-24.04`, `windows-2025` and `macos-15`; on macOS only the relative budgets and the 0.8 s warm-start ceiling gate.
 
 The techniques that keep Astela within these budgets, such as a tiny main entry, lazily loaded modules and no synchronous IPC, are described in [performance](../architecture/performance.md).
 

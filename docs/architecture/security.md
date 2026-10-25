@@ -15,7 +15,7 @@ Every item in this section is designed to be covered by an automated test.
 - `nodeIntegration` is `false`.
 - `webSecurity` stays on; `allowRunningInsecureContent` and experimental features stay off.
 - There is no `<webview>`: `will-attach-webview` is always denied.
-- Web tabs have no preload script. Feature scripts, such as the reader view, will run only on demand in an isolated world.
+- Web tabs have no preload script; the only planned exception is the content blocker's minimal frame preload in M2 (see [IPC](ipc.md)). Feature scripts, such as the reader view, will run only on demand in an isolated world.
 - Internal pages get a capability-scoped preload that exposes only the IPC channels they need (see [IPC](ipc.md)).
 
 ### Navigation and window guards
@@ -97,12 +97,12 @@ Safe Browsing is not available in Electron (as of October 2026). In M2, Astela w
 ## User agent
 
 - Astela will remove the app and Electron tokens from the user agent string through `app.userAgentFallback`. The User-Agent Client Hints brand stays "Chromium".
-- The design includes a site-specific compatibility override behind a feature flag, for sites that reject the default user agent.
-- The override will be checked manually with every Electron upgrade, as part of the [maintainer workflow](../maintainers/WORKFLOW.md).
+- Google account sign-in (`accounts.google.com`) can reject Electron-based browsers (as of October 2026), so the design includes a user agent override for that host behind a feature flag.
+- The override and Google account sign-in will be checked manually after every Electron major upgrade, as part of the [maintainer workflow](../maintainers/WORKFLOW.md).
 
 ## Web platform API inventory
 
-An early M1 spike will produce an inventory of web platform APIs exposed by the embedded Chromium, measured in the packaged build. Capabilities that depend on Google services are expected to be unavailable, because Electron includes neither those services nor Chromium's component updater. If the inventory finds an unexpected working capability, the maintainers will decide whether and how to disable it.
+An early M1 spike will produce an inventory of web platform APIs exposed by the embedded Chromium, measured in the packaged build. Capabilities that depend on Google services are expected to be unavailable, because Electron includes neither those services nor Chromium's component updater. If the inventory finds an unexpected working capability, the repository owner will decide whether and how to disable it.
 
 ## Supply chain
 
@@ -131,7 +131,7 @@ The [maintainer workflow](../maintainers/WORKFLOW.md) describes the environments
 - Astela follows the latest stable Electron major. Electron publishes a new major every 8 weeks, supports the latest three majors and ships patch releases two to three times a week per supported line (as of October 2026).
 - The weekly `freshness.yml` workflow will turn red when an Electron security release or a known vulnerability in a dependency is pending. It raises an alarm without opening automated pull requests; maintainers then update.
 - A weekly CI job will build against the next Electron beta to surface breaking changes early.
-- pnpm's `minimumReleaseAge` setting (default 1 day, as of October 2026) would delay urgent Electron patches; the security update procedure documents an override.
+- pnpm's `minimumReleaseAge` setting (default 1 day, as of October 2026) would delay urgent Electron patches; the security update procedure in the [maintainer workflow](../maintainers/WORKFLOW.md) will document an override.
 - Fully automatic Windows signing within the 24-hour target requires Azure Artifact Signing or an OV certificate (see [updates](updates.md)).
 
 ## Documented limits

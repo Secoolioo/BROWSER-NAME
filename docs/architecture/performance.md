@@ -6,7 +6,7 @@ Performance comes first among Astela's [principles](principles.md). Budgets are 
 
 ## Baseline
 
-These facts set the starting point (as of October 2026). They refer to Electron 45.0.0 with Chromium 156.0.8078.48, Node 24.22.0 and V8 15.6.
+These facts set the starting point (as of October 2026). Unless noted otherwise, they refer to Electron 45.0.0 with Chromium 156.0.8078.48, Node 24.22.0 and V8 15.6.
 
 - **Package size:** Electron itself makes up about 97 % of the package size. The Electron 45 zip archives measure 123.9 MB on Linux, 158.2 MB on Windows and 120.7 MB on macOS arm64. Typical installers of real-world apps on Electron 44: NSIS 121 MB, dmg 133 MB, AppImage 129 MB, deb 100 MB, rpm 89 MB.
 - **Memory:** the fixed processes (browser, GPU and network service) take about 220–250 MB resident. Every sandboxed renderer adds about 17–28 MB of private memory.
@@ -37,7 +37,7 @@ These techniques apply from M1:
    - Background tabs use `focusOnNavigation: false`.
 6. **UI and package:**
    - UI animations use only `transform` and `opacity`, respect `prefers-reduced-motion` and run no timers while idle (see [design system](design-system.md)).
-   - `electronLanguages` is limited to the shipped languages, which saves up to 12.8 MB compressed on Windows (as of October 2026).
+   - `electronLanguages` is limited to the shipped UI languages, English and German, which saves up to 12.8 MB compressed on Windows (as of October 2026).
    - The asar archive is unpacked as little as possible.
 7. **Decided later, based on measurements:**
    - A V8 snapshot, only if it gains more than 50 ms, because it replaces the built-in Node snapshot.
@@ -69,7 +69,7 @@ The budgets are CI gates: a regression fails the build. "Bare" means the bare El
 
 ### Related targets
 
-The M1 acceptance criteria add these targets, each designed to be checked by an automated test:
+The M1 acceptance criteria and the settings, policy and theme design add these targets, each designed to be checked by an automated test:
 
 - Opening and closing 100 tabs leaves memory at no more than 110 % of the starting value (no leak).
 - Restoring a session with 100 tabs stays within the startup budget plus 150 ms; only visible tabs load.

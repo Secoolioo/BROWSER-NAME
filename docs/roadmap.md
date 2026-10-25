@@ -4,7 +4,7 @@
 
 ## Vision
 
-Astela is a browser that feels like your own tool: it starts instantly, uses little memory and adapts to the way you work. Apart from that, it leaves you alone. It runs on Windows, macOS and Linux, is built on Chromium through Electron, and follows the [principles](architecture/principles.md) that guide every design decision.
+Astela aims to be a browser that feels like your own tool: it starts instantly, uses little memory and adapts to the way you work. Apart from that, it leaves you alone. It is designed to run on Windows, macOS and Linux on top of Chromium through Electron, and follows the [principles](architecture/principles.md) that guide every design decision.
 
 ## Priorities
 
@@ -34,17 +34,17 @@ The maintainers chose a set of features as the heart of Astela. They are marked 
 
 M1 delivers exactly this basic form of each team feature, and nothing more. Everything in the last column comes later.
 
-| Feature           | Basic form in M1                                                                                                                                                                             | Later                                                                               |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Workspaces        | Create, rename and delete; icon from a built-in set, color and theme; switcher and shortcuts; optional isolated partition.                                                                   | Workspace rules (URL to workspace), own search engine and start page per workspace. |
-| Themes            | Light, dark and system; accent presets plus a free accent color; 5 built-in themes; import and export; an editor for the token list (colors, radius) with live preview and contrast warning. | Gradients, background images, a local theme gallery.                                |
-| Density and fonts | 3 density levels; UI font and size; default web fonts.                                                                                                                                       | No expansion planned.                                                               |
-| Toolbar           | Show, hide and reorder items in a list view (drag within the list); reset.                                                                                                                   | Dragging directly in the toolbar, multiple toolbars.                                |
-| New tab page      | Background (color or image), manual tiles, search box and clock on or off.                                                                                                                   | Widgets.                                                                            |
-| Search engines    | List, default engine, keywords, adding custom engines.                                                                                                                                       | OpenSearch discovery.                                                               |
-| Shortcuts         | List of all commands, recording a key, showing conflicts, reset.                                                                                                                             | Chords.                                                                             |
-| Settings          | Generated from the schema; search in every shipped language; export and import; policy lock.                                                                                                 | No expansion planned.                                                               |
-| Tab bar           | 4 positions; collapsible when vertical; drag and drop between windows and workspaces; tear-off; groups (name, color, collapsible); pinned tabs.                                              | Tab stacks, tree view.                                                              |
+| Feature           | Basic form in M1                                                                                                                                                                             | Later                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Workspaces        | Create, rename and delete; icon from a built-in set, color and theme; switcher and shortcuts; optional isolated partition.                                                                   | Workspace rules (URL to workspace), a search engine and start page per workspace. |
+| Themes            | Light, dark and system; accent presets plus a free accent color; 5 built-in themes; import and export; an editor for the token list (colors, radius) with live preview and contrast warning. | Gradients, background images, a local theme gallery.                              |
+| Density and fonts | 3 density levels; UI font and size; default web fonts.                                                                                                                                       | No expansion planned.                                                             |
+| Toolbar           | Show, hide and reorder items in a list view (drag within the list); reset.                                                                                                                   | Dragging directly in the toolbar, multiple toolbars.                              |
+| New tab page      | Background (color or image), manual tiles, search box and clock on or off.                                                                                                                   | Widgets.                                                                          |
+| Search engines    | List, default engine, keywords, adding custom engines.                                                                                                                                       | OpenSearch discovery.                                                             |
+| Shortcuts         | List of all commands, recording a key, showing conflicts, reset.                                                                                                                             | Chords.                                                                           |
+| Settings          | Generated from the schema; search in English and German; export and import; policy lock.                                                                                                     | No expansion planned.                                                             |
+| Tab bar           | 4 positions; collapsible when vertical; drag and drop between windows and workspaces; tear-off; groups (name, color, collapsible); pinned tabs.                                              | Tab stacks, tree view.                                                            |
 
 ## Feature catalog
 
@@ -66,7 +66,7 @@ The module column names the feature module that is designed to own the feature. 
 | Team          | Tab bar on the top, bottom, left or right (collapsible width when vertical), drag and drop between windows and workspaces, tear-off, tab groups, pinned tabs.                                                                                                                             | `tabstrip`, `tab-groups`                                            |
 | Enterprise    | Policy engine for all three operating systems with about 22 policies; generated ADMX/ADML, mobileconfig and Linux JSON; per-machine silent MSI; DNS over HTTPS; proxy and PAC; auth server allowlist (Kerberos and NTLM); diagnostics page; local logs; manual safe mode; admin guide v1. | `policy`, `diagnostics`, `safe-mode`                                |
 | Updates       | The complete update chain: signed feed, background download with delta updates, installation per package format, rollback. See [updates](architecture/updates.md).                                                                                                                        | `updates`                                                           |
-| Cross-cutting | Internationalization: the UI ships in two languages, follows the system language and can be switched, and a new language needs only JSON files; accessibility basics (keyboard, screen readers, forced colors, reduced motion); no telemetry.                                             | `i18n`                                                              |
+| Cross-cutting | Internationalization: the UI ships in English and German, follows the system language and can be switched, and a new language needs only JSON files; accessibility basics (keyboard, screen readers, forced colors, reduced motion); no telemetry.                                        | `i18n`                                                              |
 
 ### P1: M2 Flow
 
@@ -130,7 +130,7 @@ The first beta is a minimal browser (windows, tabs, omnibox and the security bas
 | 1    | Kernel             | Dependency injection container, `ModuleHost`, event bus, lifecycle, logging.                                                                                                      |
 | 2    | Core domain        | Settings and policy domain; policy providers that load synchronously before the app is ready; code generation for JSON Schema, ADMX/ADML, mobileconfig, Linux JSON and docs.      |
 | 3    | Platform           | `BaseWindow` and `WebContentsView`, the `app://` scheme, `IpcRouter`, the security baseline (fuses, CSP, permission and navigation guards), `BootGuard`, safe mode, logs.         |
-| 4    | Shell              | A minimal shell (tabs on top, toolbar, omnibox), the overlay, and the internationalization basics.                                                                                |
+| 4    | Shell              | A minimal shell (tabs on top, toolbar, omnibox), the overlay, and the internationalization basics for English and German.                                                         |
 | 5    | Packaging          | Every package format and architecture, package smoke tests, the end-to-end test skeleton on 3 operating systems, and the performance harness with a bare Electron reference.      |
 | 6    | Updates            | Signed feed, custom provider, an installer per package format, rollback, the migration framework, updater tests.                                                                  |
 | 7    | Linux repositories | APT and DNF repositories including beta suites, with upgrade order tests.                                                                                                         |
@@ -139,7 +139,7 @@ The first beta is a minimal browser (windows, tabs, omnibox and the security bas
 
 ### 3. Live update proof: `0.1.0-beta.2`
 
-The second beta exists to prove a real update on installed systems: NSIS on Windows, AppImage on Linux, macOS (depending on the code signing status), and upgrades through the APT and DNF repositories. The updater job will additionally prove an update from an installed `0.1.0-beta.1` through the live feed.
+The second beta is designed to prove a real update on installed systems: NSIS on Windows, AppImage on Linux, macOS (depending on the code signing status), and upgrades through the APT and DNF repositories. The updater job will additionally prove an update from an installed `0.1.0-beta.1` through the live feed.
 
 ### 4. Features as further betas
 
@@ -156,6 +156,35 @@ The P0 features follow in about 20 small pull requests. Every few pull requests,
 ### 5. Release `0.1.0`
 
 When every P0 feature meets its acceptance criteria, `0.1.0` is released on the stable channel. The upgrade path `0.1.0-beta.1` → `0.1.0-beta.2` → `0.1.0` must work for NSIS, AppImage, deb and rpm; deb and rpm packages encode betas as `0.1.0~beta.N` so that they sort before the final release. MSI packages are built for stable releases only, so `0.1.0` will be the first release with an MSI package.
+
+## M1 acceptance criteria
+
+`0.1.0` will be released only when every criterion below holds. Each criterion is designed as an automated test unless marked otherwise.
+
+- **Start-up and performance:** every budget in [performance](architecture/performance.md) is met on all three operating systems.
+- **Tabs:** opening and closing 100 tabs leaves memory at no more than 110 % of the starting value; `Ctrl/Cmd+Shift+T` restores closed tabs.
+- **Tab bar:** the position changes between top, bottom, left and right live, without a restart, and all 4 positions are compared with screenshots; the tab strip is fully operable by keyboard; the vertical bar collapses and expands.
+- **Drag and drop:** a tab dragged between two windows keeps its page state (scroll position, form content), because its view is re-attached; dropping it on a workspace icon moves it, and dropping it outside every window opens a new window; groups and pinned tabs stay consistent.
+- **Workspaces:** a workspace can be created and renamed, and its icon, color and theme can be set; switching takes at most 100 ms with 20 tabs; in an isolated workspace, a cookie from one workspace is not visible in another, and sign-ins stay separate.
+- **Themes:** an import takes effect immediately; exporting and re-importing a theme is byte-identical; a change in the editor is visible in less than 100 ms; the editor warns below a contrast of 4.5:1; a per-workspace theme switches with its workspace.
+- **Settings:** every setting can be found by its English title, its German title and its keywords; the export and import round trip is lossless; values locked by policy cannot be changed in the UI or the API and are shown as managed.
+- **Toolbar and new tab page:** toolbar items can be arranged and removed by drag and drop, and the toolbar can be reset; the new tab background, tiles and layout are adjustable, without sponsored content.
+- **Search engines:** engines can be added, the default can be set, and keyword search (`w term`) works; the default can also be set by policy.
+- **Keyboard shortcuts:** every command can be rebound, and conflicts are shown; shortcuts also work while web content has focus; the defaults follow each platform's conventions.
+- **Session:** after a restart or an update, all windows, workspaces, groups and tabs are back, and only visible tabs load; restoring 100 tabs stays within the startup budget plus 150 ms; after a crash, the session is restored without a modal dialog.
+- **Private window:** no history, no download history and no cookies remain after it closes; it uses its own in-memory partition.
+- **Downloads, history and bookmarks:** the basic functions are covered by end-to-end tests; full-text search in the history answers in less than 50 ms with 100,000 entries.
+- **Enterprise:** silent per-machine MSI installation, upgrade and uninstallation exit with code 0; policies from the registry, plist files and JSON files take effect and appear on `app://diagnostics`; the ADMX/ADML templates validate against the XSD, and maintainers check the Intune import manually once per minor release; `--safe-mode` starts without optional modules and custom themes. See [enterprise](architecture/enterprise.md).
+- **Updates:** every updater scenario in [testing](architecture/testing.md) passes on Windows (NSIS) and Linux (AppImage, deb, rpm), and on macOS depending on the code signing status; the upgrade order `0.1.0-beta.1` → `0.1.0-beta.2` → `0.1.0` works for NSIS, AppImage, deb (`0.1.0~beta.N`) and rpm.
+- **Network:** proxy modes, including a local PAC file, are tested against a test proxy; DNS over HTTPS against a local DNS over HTTPS stub; Kerberos and Negotiate against an MIT KDC and a web server in a container on Linux; a custom root certificate authority in the Windows certificate store and in the NSS database on Linux.
+- **Permissions:** camera, microphone, location and notifications are denied without consent, even with the `permissions` module disabled and in safe mode; revoking a permission in the list takes effect immediately.
+- **No telemetry:** a network capture during 60 s of idle time after start shows no connections other than the allowlisted ones (the update feed check after 30 to 60 s).
+- **Omnibox, find in page and zoom:** URLs and searches are told apart correctly; suggestions from history, bookmarks and open tabs appear in less than 30 ms; find in page and per-site zoom are saved.
+- **Diagnostics and logs:** `app://diagnostics` shows every required field, and its export is redacted; logs rotate at 5 MB × 3 files.
+- **Layout presets:** each preset produces its reference layout (screenshot diff), and the choice on first start is non-modal.
+- **Internationalization:** 100 % of the keys exist in English and German; the language follows the system and can be switched; a third language can be added with JSON files alone (tested with a pseudo-locale).
+- **Accessibility:** axe reports no serious or critical issues, and accessibility tree snapshots serve as regression tests; the browser is fully operable by keyboard (F6 cycles from the toolbar to the tabs to the content); maintainers run a screen reader smoke test with NVDA, VoiceOver and Orca once per minor release, as described in [WORKFLOW.md](maintainers/WORKFLOW.md).
+- **Release:** a merge with a version bump produces the release, the packages, the update feed, the package repositories and the website without manual steps.
 
 ## Related documents
 
