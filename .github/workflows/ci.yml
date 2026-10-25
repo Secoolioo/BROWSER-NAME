@@ -177,8 +177,7 @@ jobs:
           for entry in $FORMATS; do
             format="${entry%%:*}"
             pattern="${entry#*:}"
-            # shellcheck disable=SC2086 # the pattern must expand
-            file=$(ls "$RUNNER_TEMP"/packages/$pattern | head -1)
+            file=$(find "$RUNNER_TEMP/packages" -maxdepth 1 -name "$pattern" | sort | head -1)
             node tools/package/smoke.ts "$format" "$file"
           done
       - name: Install and start the rpm on Fedora
@@ -303,6 +302,7 @@ jobs:
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |
+          # shellcheck disable=SC2016 # JavaScript template literal
           node -e '
             const needs = JSON.parse(process.env.NEEDS);
             const failed = Object.entries(needs).filter(([, job]) => !["success", "skipped"].includes(job.result));
