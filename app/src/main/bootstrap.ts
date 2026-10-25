@@ -204,14 +204,16 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   }
   logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });
 
-  // Everything that is not needed for the first window loads after it.
+  // Everything that is not needed for the first window loads after its shell.
   let updates: UpdateService | undefined;
-  void import('./updates.ts')
-    .then(({ createUpdateService }) => {
-      updates = createUpdateService({ policies, clock, logger, userData, boot });
-      updates.start();
-    })
-    .catch((error: unknown) => logger.error('The update service failed to start', error));
+  first.shellContents.once('did-finish-load', () => {
+    void import('./updates.ts')
+      .then(({ createUpdateService }) => {
+        updates = createUpdateService({ policies, clock, logger, userData, boot });
+        updates.start();
+      })
+      .catch((error: unknown) => logger.error('The update service failed to start', error));
+  });
 
   const refreshPolicies = (): void => void policies.refresh();
   app.on('browser-window-focus', refreshPolicies);
