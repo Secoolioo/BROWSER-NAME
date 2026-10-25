@@ -78,7 +78,7 @@ After a rollback, an older version can find data that a newer version has alread
 
 ## Day-one validation of node:sqlite
 
-Because the storage engine is hard to change later, `node:sqlite` will be validated in a spike at the very start of M1, before the first walking-skeleton release:
+Because the storage engine is hard to change later, `node:sqlite` was validated in a spike at the very start of M1, before the first walking-skeleton release. It passed on all six platforms; the [validation results](validation.md#storage-with-nodesqlite) list the measurements.
 
 - **Platforms:** 3 operating systems × 2 architectures.
 - **Checks:** importing `node:sqlite` inside the utility process, FTS5, WAL and `VACUUM INTO`.

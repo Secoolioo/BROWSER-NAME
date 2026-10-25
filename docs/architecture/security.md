@@ -102,7 +102,7 @@ Safe Browsing is not available in Electron (as of October 2026). In M2, Astela w
 
 ## Web platform API inventory
 
-An early M1 spike will produce an inventory of web platform APIs exposed by the embedded Chromium, measured in the packaged build. Capabilities that depend on Google services are expected to be unavailable, because Electron includes neither those services nor Chromium's component updater. If the inventory finds an unexpected working capability, the repository owner will decide whether and how to disable it.
+An early M1 spike produced an inventory of web platform APIs exposed by the embedded Chromium, measured in the packaged build. Capabilities that depend on Google services are unavailable, because Electron includes neither those services nor Chromium's component updater; the [validation results](validation.md#web-platform-api-inventory) list the details. If a later Electron version exposes an unexpected working capability, the repository owner will decide whether and how to disable it.
 
 ## Supply chain
 

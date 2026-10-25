@@ -8,6 +8,10 @@ Accepted
 
 2026-10-25
 
+## Validation
+
+Validated on 2026-10-25, with two adjustments: the AppImage gets its own launcher because the generated one disables the sandbox silently, and packages are built outside the checkout because fpm expands `NAME`, `VERSION` and `ARCH` in paths. See the [validation results](../architecture/validation.md#linux-sandbox-with-restricted-user-namespaces).
+
 ## Context
 
 Astela ships on Windows, macOS and Linux, on x64 and arm64, and must be installable by home users as well as by IT departments. That requires a wide set of formats: a per-user installer and a per-machine MSI on Windows, dmg and zip on macOS, and AppImage, deb and rpm on Linux. Every package needs the same security hardening, must be signable as soon as certificates are available, and has to work with the update chain in [ADR 0014](0014-update-architecture-with-signed-feed.md) and the package repositories in [ADR 0015](0015-linux-package-repositories.md).
