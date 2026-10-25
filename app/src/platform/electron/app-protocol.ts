@@ -1,6 +1,5 @@
-import { net, protocol, type Session } from 'electron';
-import { pathToFileURL } from 'node:url';
-import { appContentSecurityPolicy, appScheme, resolveAppRoute } from './app-protocol-routes.ts';
+import { protocol, type Session } from 'electron';
+import { appScheme, appSourceRoutes } from './app-protocol-routes.ts';
 
 /**
  * Registers `app://` as a privileged, standard and secure scheme with a code cache. Must
@@ -38,26 +37,8 @@ export class AppProtocol {
    * @param session - The internal session.
    */
   serve(session: Session): void {
-    session.protocol.handle(appScheme, async (request) => {
-      const route = resolveAppRoute(request.method, request.url, this.root, this.hosts);
-      if (route.kind === 'error') {
-        return new Response(null, { status: route.status });
-      }
-      const file = await net.fetch(pathToFileURL(route.path).href);
-      if (!file.ok) {
-        return new Response(null, { status: 404 });
-      }
-      return new Response(request.method === 'HEAD' ? null : file.body, {
-        status: 200,
-        headers: {
-          'content-type': route.contentType,
-          'content-security-policy': appContentSecurityPolicy,
-          'x-content-type-options': 'nosniff',
-          'cross-origin-opener-policy': 'same-origin',
-          'cross-origin-resource-policy': 'same-origin',
-          'cache-control': 'no-cache',
-        },
-      });
+    session.protocol.registerSource(appScheme, {
+      routes: appSourceRoutes(this.root, this.hosts),
     });
   }
 

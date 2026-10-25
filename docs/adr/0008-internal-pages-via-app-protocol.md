@@ -8,6 +8,10 @@ Accepted
 
 2026-10-25
 
+## Validation
+
+The performance harness measured the shell over `protocol.handle`: every request waited for the busy main process, and the shell's HTML response took about 40 ms to arrive. With `protocol.registerSource`, the internal session streams the files without the main thread, which made the shell load about 20 ms faster on Linux (October 2026). The internal session therefore uses `protocol.registerSource` with one route per host, a shared route for the bundler's `/assets/` folder, and the response headers of the Content Security Policy. Web sessions keep a `protocol.handle` handler that answers every `app://` request with 403. Paths that leave a route's folder are never served. The harness checks the start-up budget on every pull request, so a regression of the experimental API would surface at the next Electron upgrade.
+
 ## Context
 
 Lampo's own UI is web content: the shell of each window, the overlay, and internal pages such as settings, history, downloads, the theme editor, diagnostics and the new tab page. These pages must load quickly at start-up, must have their own origin so that the main process can tell them apart from web content, and must be unreachable from websites. Loading them from `file://` gives no distinct origin, shares privileges with every local file and cannot use Chromium's code cache in the same way as a standard scheme.

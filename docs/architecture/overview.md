@@ -16,7 +16,7 @@ Each decision is recorded in an [architecture decision record](../adr/README.md)
 | UI                   | Class-based web components with Lit, written without decorators; trivial leaf elements are plain `HTMLElement` classes.                    | 0005 |
 | Dependency injection | A custom typed container with constructor injection and scopes, without reflection.                                                        | 0006 |
 | IPC                  | Typed contracts with Valibot schemas, validated on every call.                                                                             | 0007 |
-| Internal pages       | A privileged `app://` scheme served through `protocol.handle` and registered on every session.                                             | 0008 |
+| Internal pages       | A privileged `app://` scheme: the internal session serves it with `protocol.registerSource`, and every web session refuses it.             | 0008 |
 | Storage              | `node:sqlite` in a `utilityProcess`, validated on every platform and architecture; a prebuilt native module stays the documented fallback. | 0009 |
 | Modules              | A microkernel with lazily loaded feature modules.                                                                                          | 0010 |
 | Updates              | electron-updater as the installation engine behind Lampo's own Ed25519-signed update feed.                                                 | 0014 |
