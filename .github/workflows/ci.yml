@@ -122,25 +122,25 @@ jobs:
               name: linux-x64,
               os: ubuntu-24.04,
               packages: linux-x64,
-              formats: 'appimage-no-sandbox:*.AppImage appimage:*.AppImage deb:*.deb',
+              formats: 'appimage-no-sandbox:*-x86_64.AppImage appimage:*-x86_64.AppImage deb:*-amd64.deb',
             }
           - {
               name: linux-arm64,
               os: ubuntu-24.04-arm,
               packages: linux-arm64,
-              formats: 'appimage:*.AppImage deb:*.deb',
+              formats: 'appimage:*-arm64.AppImage deb:*-arm64.deb',
             }
           - {
               name: windows-x64,
               os: windows-2025,
               packages: windows-x64,
-              formats: 'nsis:*-setup.exe msi:*.msi',
+              formats: 'nsis:*-x64-setup.exe msi:*-x64.msi',
             }
           - {
               name: windows-arm64,
               os: windows-11-arm,
               packages: windows-arm64,
-              formats: 'nsis:*-setup.exe',
+              formats: 'nsis:*-arm64-setup.exe',
             }
           - { name: macos-arm64, os: macos-15, packages: macos, formats: 'dmg:*-arm64.dmg' }
           - { name: macos-x64, os: macos-15-intel, packages: macos, formats: 'dmg:*-x64.dmg' }
@@ -184,7 +184,7 @@ jobs:
         if: matrix.name == 'linux-x64'
         run: |
           docker run --rm -v "$RUNNER_TEMP/packages:/packages" fedora:latest bash -c '
-            dnf install -y -q /packages/*.rpm xorg-x11-server-Xvfb xorg-x11-xauth >/dev/null &&
+            dnf install -y -q /packages/*-x86_64.rpm xorg-x11-server-Xvfb xorg-x11-xauth >/dev/null &&
             xvfb-run -a /opt/*/astela --no-sandbox --smoke-test=/packages/rpm-report.json'
           node -e 'const r = require(process.argv[1]); console.log(r); process.exit(r.ok ? 0 : 1)' "$RUNNER_TEMP/packages/rpm-report.json"
 

@@ -6,7 +6,15 @@
  * Formats: `nsis`, `msi`, `dmg`, `appimage`, `appimage-no-sandbox`, `deb`, `dir`.
  */
 import { spawn, spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -61,7 +69,8 @@ function run(command: string, args: readonly string[]): SpawnSyncReturns<string>
 }
 
 /**
- * Finds the first file below a directory whose name matches.
+ * Finds the first file below a directory whose name matches. Symbolic links are not
+ * followed, such as the `Applications` link in a disk image.
  * @param dir - Directory to search.
  * @param match - Name test.
  */
@@ -71,7 +80,7 @@ function find(dir: string, match: (name: string, path: string) => boolean): stri
     if (match(name, path)) {
       return path;
     }
-    if (statSync(path).isDirectory() && !name.endsWith('.app')) {
+    if (lstatSync(path).isDirectory() && !name.endsWith('.app')) {
       const found = find(path, match);
       if (found !== undefined) {
         return found;
