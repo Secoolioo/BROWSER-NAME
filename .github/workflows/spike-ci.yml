@@ -1,0 +1,13 @@
+name: Spike CI run
+
+on:
+  push:
+    branches: ['spike/ci-run']
+
+permissions: {}
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
