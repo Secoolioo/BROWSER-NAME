@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../../.tsbuild/ui",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "resolveJsonModule": true,
+    "useDefineForClassFields": false
+  },
+  "include": ["**/*.ts", "**/*.json"],
+  "references": [{ "path": "../shared" }]
+}

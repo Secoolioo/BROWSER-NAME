@@ -1,0 +1,219 @@
+import { app, Menu, session, type Session } from 'electron';
+import { join } from 'node:path';
+import { brand } from '../shared/brand.ts';
+import {
+  ActivateTab,
+  CloseTab,
+  GetShellState,
+  NavigateTab,
+  OpenTab,
+  ReopenClosedTab,
+  SetShellInsets,
+  TabAction,
+} from '../shared/ipc/shell-contracts.ts';
+import { Lifecycle } from '../kernel/lifecycle/lifecycle.ts';
+import {
+  FanOutLogSink,
+  RingBufferLogSink,
+  SinkLogger,
+  type Logger,
+} from '../kernel/logging/logger.ts';
+import { resolveOmniboxInput } from '../domain/navigation/omnibox.ts';
+import { PolicyService } from '../domain/policy/policy-service.ts';
+import { SettingsService, settingPolicies } from '../domain/settings/settings-service.ts';
+import { AppProtocol, registerAppScheme } from '../platform/electron/app-protocol.ts';
+import {
+  WindowManager,
+  type BrowserWindowController,
+} from '../platform/electron/browser-window.ts';
+import { IpcGate } from '../platform/electron/ipc-gate.ts';
+import { IpcRouter } from '../platform/electron/ipc-router.ts';
+import {
+  cleanUserAgent,
+  guardWebContents,
+  hardenSession,
+} from '../platform/electron/session-security.ts';
+import { RotatingFileLogSink } from '../platform/node/file-log-sink.ts';
+import { JsonFileSettingsStore } from '../platform/node/json-settings-store.ts';
+import { SystemClock } from '../platform/node/system-clock.ts';
+import { JsonFilePolicyCache } from '../platform/policy/policy-providers.ts';
+import { createPolicyProviders } from '../platform/policy/platform-providers.ts';
+import { SearchUrlTemplate, coreSettings } from './core-settings.ts';
+
+/** Paths of the bundled files, relative to the main bundle. */
+export interface BundleLayout {
+  /** Directory of the renderer build (one folder per internal host). */
+  readonly rendererDir: string;
+  /** Preload script of the shell. */
+  readonly shellPreload: string;
+  /** Dev server URL of the shell, only during development. */
+  readonly devShellUrl: string | undefined;
+}
+
+const internalPartition = 'internal';
+const webPartition = 'persist:default';
+const blankUrl = 'about:blank';
+
+/**
+ * Starts the browser. The order matters for start-up time and safety: schemes and
+ * policies before `ready`, sessions hardened before any view exists, the window as early
+ * as possible, everything else after the first paint.
+ * @param layout - Where the bundled files are.
+ */
+export async function bootstrap(layout: BundleLayout): Promise<void> {
+  registerAppScheme();
+  app.setName(brand.productName);
+  app.userAgentFallback = cleanUserAgent(app.userAgentFallback);
+  const safeMode = app.commandLine.hasSwitch('safe-mode');
+  const clock = new SystemClock();
+  const userData = app.getPath('userData');
+  const recentLogs = new RingBufferLogSink(500);
+  const logger: Logger = new SinkLogger(
+    new FanOutLogSink([
+      new RotatingFileLogSink({ directory: join(userData, 'logs'), name: 'main' }),
+      recentLogs,
+    ]),
+    clock,
+    { scope: 'main', level: app.isPackaged ? 'info' : 'debug' },
+  );
+  logger.info('Starting', {
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    safeMode,
+  });
+
+  // Policies are read synchronously before ready, because some become Chromium switches.
+  const policies = new PolicyService(
+    settingPolicies(coreSettings),
+    createPolicyProviders(brand, process.platform),
+    logger,
+    new JsonFilePolicyCache(join(userData, 'policy-cache.json')),
+  );
+  policies.refresh();
+
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
+  Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(macMenu()) : null);
+
+  await app.whenReady();
+  const lifecycle = new Lifecycle(logger, clock, {});
+  const protocolHandler = new AppProtocol(layout.rendererDir, new Set(['shell']));
+  const internal = session.fromPartition(internalPartition);
+  protocolHandler.serve(internal);
+  hardenSession(internal);
+  const webSessions = new Set<Session>();
+  const protectWebSession = (s: Session): void => {
+    if (s !== internal && !webSessions.has(s)) {
+      webSessions.add(s);
+      protocolHandler.refuse(s);
+      hardenSession(s);
+    }
+  };
+  app.on('session-created', protectWebSession);
+  protectWebSession(session.defaultSession);
+  protectWebSession(session.fromPartition(webPartition));
+
+  const gate = new IpcGate(clock);
+  const router = new IpcRouter(gate, logger);
+  const store = new JsonFileSettingsStore(
+    join(userData, 'settings.json'),
+    join(userData, 'settings.rejected.json'),
+    clock,
+  );
+  const settings = new SettingsService(coreSettings, policies, store, logger);
+  await settings.load();
+
+  const windows = new WindowManager({
+    shellUrl: layout.devShellUrl ?? 'app://shell/',
+    shellOrigin:
+      layout.devShellUrl === undefined ? 'app://shell' : new URL(layout.devShellUrl).origin,
+    shellPreload: layout.shellPreload,
+    internalPartition,
+    webPartition,
+    blankUrl,
+    backgroundColor: '#f7f7f8',
+    gate,
+    router,
+    logger,
+  });
+  guardWebContents(app, {
+    isInternal: (contents) => windows.isShell(contents),
+    openInTab: (url, opener) => windows.forTab(opener)?.tabs.open(url),
+    logger,
+  });
+  registerShellHandlers(router, windows, settings);
+
+  windows.open();
+  lifecycle.advance('ready');
+  logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });
+
+  const refreshPolicies = (): void => void policies.refresh();
+  app.on('browser-window-focus', refreshPolicies);
+  const timer = setInterval(refreshPolicies, 15 * 60 * 1000);
+  timer.unref();
+
+  app.on('second-instance', () => windows.all[0]?.window.focus() ?? windows.open());
+  app.on('activate', () => {
+    if (windows.all.length === 0) windows.open();
+  });
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+  let quitting = false;
+  app.on('before-quit', (event) => {
+    if (quitting) return;
+    quitting = true;
+    event.preventDefault();
+    lifecycle.onWillShutdown((e) => e.join(store.flush(), 'settings'));
+    void lifecycle.shutdown('quit').then(() => {
+      windows.dispose();
+      app.quit();
+    });
+  });
+  lifecycle.advance('running');
+}
+
+function registerShellHandlers(
+  router: IpcRouter,
+  windows: WindowManager,
+  settings: SettingsService,
+): void {
+  const windowOf = (sender: Electron.WebContents): BrowserWindowController => {
+    const window = windows.forShell(sender);
+    if (window === undefined) {
+      throw new Error('No window for this shell');
+    }
+    return window;
+  };
+  const target = (input: string): string | undefined =>
+    resolveOmniboxInput(input, settings.get(SearchUrlTemplate))?.url;
+  router.handle(GetShellState, (_request, { sender }) => windowOf(sender).state());
+  router.handle(OpenTab, ({ input }, { sender }) => ({
+    tabId: windowOf(sender).tabs.open(input === undefined ? undefined : target(input)),
+  }));
+  router.handle(
+    ActivateTab,
+    ({ tabId }, { sender }) => (windowOf(sender).tabs.activate(tabId), null),
+  );
+  router.handle(CloseTab, ({ tabId }, { sender }) => (windowOf(sender).tabs.close(tabId), null));
+  router.handle(
+    ReopenClosedTab,
+    (_request, { sender }) => (windowOf(sender).tabs.reopenClosed(), null),
+  );
+  router.handle(NavigateTab, ({ tabId, input }, { sender }) => {
+    const url = target(input);
+    if (url !== undefined) windowOf(sender).tabs.navigate(tabId, url);
+    return null;
+  });
+  router.handle(
+    TabAction,
+    ({ tabId, action }, { sender }) => (windowOf(sender).tabs.run(tabId, action), null),
+  );
+  router.handle(SetShellInsets, (insets, { sender }) => (windowOf(sender).setInsets(insets), null));
+}
+
+function macMenu(): Electron.MenuItemConstructorOptions[] {
+  return [{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' }];
+}

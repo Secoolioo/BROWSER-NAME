@@ -1,0 +1,218 @@
+import type { Input } from 'electron';
+import * as v from 'valibot';
+import { describe, expect, it } from 'vitest';
+import { defineEvent, defineRequest } from '../../shared/ipc/contract.ts';
+import { shellChannels, shellEventChannels } from '../../shared/ipc/shell-channels.ts';
+import {
+  ShellCommand,
+  ShellStateChanged,
+  shellRequests,
+} from '../../shared/ipc/shell-contracts.ts';
+import { ManualClock } from '../../kernel/time/clock.ts';
+import { resolveAppRoute, appContentSecurityPolicy } from '../electron/app-protocol-routes.ts';
+import { commandForInput } from '../electron/shortcuts.ts';
+import { IpcGate, originOf } from '../electron/ipc-gate.ts';
+import { cleanUserAgent } from '../electron/session-security.ts';
+
+const Ping = defineRequest({
+  channel: 'test.ping',
+  request: v.strictObject({ n: v.number() }),
+  response: v.null(),
+  capability: 'shell',
+  ratePerSecond: 2,
+});
+const shellSender = { viewId: 7, frameUrl: 'app://shell/index.html', isMainFrame: true };
+
+describe('IpcGate', () => {
+  it('accepts valid requests from registered views', () => {
+    const gate = new IpcGate(new ManualClock());
+    gate.registerView(7, { origin: 'app://shell', capabilities: new Set(['shell']) });
+    expect(gate.check(Ping, shellSender, { n: 1 })).toEqual({ ok: true, value: { n: 1 } });
+    expect(gate.mayReceive(7, 'shell')).toBe(true);
+    expect(gate.mayReceive(8, 'shell')).toBe(false);
+  });
+
+  it('refuses unknown senders, subframes, other origins, missing capabilities and bad payloads', () => {
+    const gate = new IpcGate(new ManualClock());
+    gate.registerView(7, { origin: 'app://shell', capabilities: new Set(['page:settings']) });
+    gate.registerView(9, { origin: 'app://shell', capabilities: new Set(['shell']) });
+    expect(gate.check(Ping, { ...shellSender, viewId: 1 }, { n: 1 })).toEqual({
+      ok: false,
+      error: 'unknown-sender',
+    });
+    expect(gate.check(Ping, { ...shellSender, viewId: 9, isMainFrame: false }, { n: 1 })).toEqual({
+      ok: false,
+      error: 'not-main-frame',
+    });
+    expect(
+      gate.check(Ping, { ...shellSender, viewId: 9, frameUrl: 'https://evil.example/' }, { n: 1 }),
+    ).toEqual({ ok: false, error: 'wrong-origin' });
+    expect(gate.check(Ping, shellSender, { n: 1 })).toEqual({
+      ok: false,
+      error: 'missing-capability',
+    });
+    expect(gate.check(Ping, { ...shellSender, viewId: 9 }, { n: 'x' })).toEqual({
+      ok: false,
+      error: 'invalid-payload',
+    });
+    expect(gate.check(Ping, { ...shellSender, viewId: 9 }, { n: 1, extra: true })).toEqual({
+      ok: false,
+      error: 'invalid-payload',
+    });
+  });
+
+  it('rate-limits per sender and channel and refills over time', () => {
+    const clock = new ManualClock();
+    const gate = new IpcGate(clock);
+    gate.registerView(7, { origin: 'app://shell', capabilities: new Set(['shell']) });
+    const call = (): string => (gate.check(Ping, shellSender, { n: 1 }).ok ? 'ok' : 'limited');
+    expect([call(), call(), call()]).toEqual(['ok', 'ok', 'limited']);
+    clock.advance(500);
+    expect(call()).toBe('ok');
+    expect(call()).toBe('limited');
+  });
+
+  it('forgets a view when it is unregistered, but not a newer registration', () => {
+    const gate = new IpcGate(new ManualClock());
+    const first = gate.registerView(7, { origin: 'app://shell', capabilities: new Set(['shell']) });
+    first.dispose();
+    expect(gate.check(Ping, shellSender, { n: 1 }).ok).toBe(false);
+    const second = gate.registerView(7, {
+      origin: 'app://shell',
+      capabilities: new Set(['shell']),
+    });
+    first.dispose();
+    expect(gate.check(Ping, shellSender, { n: 1 }).ok).toBe(true);
+    second.dispose();
+  });
+
+  it('computes origins of internal and web URLs', () => {
+    expect(originOf('APP://Shell/index.html?x#y')).toBe('app://shell');
+    expect(originOf('https://example.com:8443/a')).toBe('https://example.com:8443');
+    expect(originOf('about:blank')).toBe('');
+  });
+});
+
+describe('contracts', () => {
+  it('keeps the preload channel list in sync with the contracts', () => {
+    expect(shellRequests.map((c) => c.channel).toSorted()).toEqual([...shellChannels].toSorted());
+    expect([ShellStateChanged.channel, ShellCommand.channel].toSorted()).toEqual(
+      [...shellEventChannels].toSorted(),
+    );
+  });
+
+  it('rejects invalid channel names', () => {
+    expect(() => defineEvent({ channel: 'Bad', payload: v.null(), capability: 'shell' })).toThrow(
+      /dotted camelCase/,
+    );
+  });
+});
+
+describe('resolveAppRoute', () => {
+  const root = '/r';
+  const hosts = new Set(['shell', 'settings']);
+  it('maps hosts to their folder and shares the assets folder', () => {
+    expect(resolveAppRoute('GET', 'app://shell/', root, hosts)).toEqual({
+      kind: 'file',
+      path: '/r/shell/index.html',
+      contentType: 'text/html; charset=utf-8',
+    });
+    expect(resolveAppRoute('GET', 'app://SHELL/assets/a-1.js?v=1', root, hosts)).toEqual({
+      kind: 'file',
+      path: '/r/assets/a-1.js',
+      contentType: 'text/javascript; charset=utf-8',
+    });
+    expect(resolveAppRoute('HEAD', 'app://settings/sub/', root, hosts)).toMatchObject({
+      path: '/r/settings/sub/index.html',
+    });
+  });
+
+  it('refuses unknown hosts, other methods, traversal, hidden files and unknown types', () => {
+    expect(resolveAppRoute('GET', 'app://other/', root, hosts)).toEqual({
+      kind: 'error',
+      status: 404,
+    });
+    expect(resolveAppRoute('POST', 'app://shell/', root, hosts)).toEqual({
+      kind: 'error',
+      status: 405,
+    });
+    expect(resolveAppRoute('GET', 'app://shell/..%2f..%2fetc%2fpasswd', root, hosts)).toEqual({
+      kind: 'error',
+      status: 403,
+    });
+    expect(resolveAppRoute('GET', 'app://shell/assets/..%2f..%2fx.js', root, hosts)).toEqual({
+      kind: 'error',
+      status: 403,
+    });
+    expect(resolveAppRoute('GET', 'app://shell/.secret.json', root, hosts)).toEqual({
+      kind: 'error',
+      status: 403,
+    });
+    expect(resolveAppRoute('GET', 'app://shell/%zz', root, hosts)).toEqual({
+      kind: 'error',
+      status: 404,
+    });
+    expect(resolveAppRoute('GET', 'app://shell/a.exe', root, hosts)).toEqual({
+      kind: 'error',
+      status: 404,
+    });
+    expect(resolveAppRoute('GET', 'app://shell/a%00.js', root, hosts)).toEqual({
+      kind: 'error',
+      status: 403,
+    });
+  });
+
+  it('serves pages with a strict content security policy', () => {
+    expect(appContentSecurityPolicy).toContain("default-src 'none'");
+    expect(appContentSecurityPolicy).toContain("require-trusted-types-for 'script'");
+    expect(appContentSecurityPolicy).not.toContain('unsafe');
+  });
+});
+
+describe('cleanUserAgent', () => {
+  it('removes the app and Electron tokens', () => {
+    const ua =
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) app/0.1.0 Chrome/156.0.8078.48 Electron/45.0.0 Safari/537.36';
+    expect(cleanUserAgent(ua)).toBe(
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.48 Safari/537.36',
+    );
+  });
+});
+
+const key = (k: string, mods: Partial<Input> = {}): Input => ({
+  type: 'keyDown',
+  key: k,
+  code: '',
+  isAutoRepeat: false,
+  isComposing: false,
+  location: 0,
+  modifiers: [],
+  control: false,
+  meta: false,
+  alt: false,
+  shift: false,
+  ...mods,
+});
+
+describe('commandForInput', () => {
+  it('maps platform shortcuts to commands', () => {
+    expect(commandForInput(key('t', { control: true }), 'linux')).toBe('tab.new');
+    expect(commandForInput(key('T', { control: true, shift: true }), 'win32')).toBe('tab.reopen');
+    expect(commandForInput(key('t', { meta: true }), 'darwin')).toBe('tab.new');
+    expect(commandForInput(key('t', { control: true }), 'darwin')).toBeUndefined();
+    expect(commandForInput(key('w', { control: true }), 'linux')).toBe('tab.close');
+    expect(commandForInput(key('l', { control: true }), 'linux')).toBe('omnibox.focus');
+    expect(commandForInput(key('r', { control: true }), 'linux')).toBe('page.reload');
+    expect(commandForInput(key('F5'), 'win32')).toBe('page.reload');
+    expect(commandForInput(key('Tab', { control: true }), 'linux')).toBe('tab.next');
+    expect(commandForInput(key('Tab', { control: true, shift: true }), 'darwin')).toBe(
+      'tab.previous',
+    );
+    expect(commandForInput(key('ArrowLeft', { alt: true }), 'linux')).toBe('page.back');
+    expect(commandForInput(key('ArrowRight', { meta: true }), 'darwin')).toBe('page.forward');
+    expect(
+      commandForInput({ ...key('t', { control: true }), type: 'keyUp' }, 'linux'),
+    ).toBeUndefined();
+    expect(commandForInput(key('t', { control: true, alt: true }), 'linux')).toBeUndefined();
+  });
+});
