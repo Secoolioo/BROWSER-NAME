@@ -1,6 +1,6 @@
 # Architecture overview
 
-> **Status:** this page describes the target architecture of Lampo. It is a design, not a description of existing code: nothing here is implemented or released yet.
+> **Status:** this page describes the target architecture of Lampo. A first window with tabs and an address bar exists; everything else here is design. See [implementation status](#implementation-status).
 
 Lampo is a desktop browser for Windows, macOS and Linux. It embeds Chromium through upstream Electron and is written in TypeScript. The browser process acts as a small kernel. Every feature is a module, every module beyond the core can be switched off, and a module that is off is never loaded. The [principles](principles.md) explain why the architecture looks the way it does.
 
@@ -404,3 +404,13 @@ Wayland does not let applications position their windows. A torn-off window is t
 - [Validation results](validation.md): measurements from the experiments that tested the riskiest assumptions.
 - [Architecture decision records](../adr/README.md): every significant decision and its reasoning.
 - [Roadmap](../roadmap.md): milestones, priorities and the M1 delivery order.
+
+## Implementation status
+
+The first browser window works end to end:
+
+- **Process model:** one `BaseWindow` per window with a shell view (`app://shell`) and one `WebContentsView` per tab, created when the tab first becomes active. Web content and the browser's own pages use separate sessions.
+- **Shell:** tab strip on top, back, forward and reload buttons, and an address bar that tells URLs from searches (`app/src/ui/shell/`). Keyboard shortcuts for new, closed and reopened tabs, the address bar and reload work in the shell and in web content.
+- **Composition root:** `app/src/main/bootstrap.ts` wires the first services by hand. It moves onto the dependency injection container and the module host with the first feature module.
+
+Not implemented yet: the overlay view, workspaces, tab groups, other tab bar positions, drag and drop, the data-service process and the update service.

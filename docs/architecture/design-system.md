@@ -1,6 +1,6 @@
 # Design system
 
-> **Status:** design. Nothing described here is implemented or released yet. This document defines the rules the user interface is designed to follow from M1 on.
+> **Status:** partly implemented. The first design tokens exist; the rest of this page is design. See [implementation status](#implementation-status).
 
 The design system makes "beautiful" measurable. A small set of design tokens, fixed scales and automated checks keep every surface of Lampo consistent, readable and calm, and turn visual quality into something CI can verify.
 
@@ -125,3 +125,9 @@ Automated checks:
 Design review: once per minor release, maintainers review the generated screenshot gallery (all tab bar positions, light and dark) and approve it.
 
 How these checks fit into the overall test strategy is described in [Testing](testing.md).
+
+## Implementation status
+
+The first tokens exist in `app/src/ui/ui-kit/tokens.css`: OKLCH colors for light and dark mode, spacing, radii and motion, with motion switched off for `prefers-reduced-motion`. The shell uses them, with inline Lucide-style icons. The application icon is described in `assets/brand/README.md`.
+
+Not implemented yet: density levels, font settings, the tab bar positions, layout presets, the built-in themes and the automated contrast, accessibility and screenshot checks.
