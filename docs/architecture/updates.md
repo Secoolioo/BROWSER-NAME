@@ -1,6 +1,6 @@
 # Update architecture
 
-> **Status:** approved design. Nothing described here is implemented or released yet. Structure and decisions are written in the present tense; runtime behavior is described as what the system will do.
+> **Status:** partly implemented. Every package format is built and tested; updates are design. See [implementation status](#implementation-status).
 
 Lampo is designed to update itself on every supported platform without dialogs. A signed feed decides _what_ gets installed. Depending on the package format, electron-updater, the operating system's package manager or the IT department decides _how_ it gets installed. The decision records are ADR 0014 (update architecture with a signed feed) and ADR 0015 (Linux package repositories); see the [decision record index](../adr/README.md).
 
@@ -268,3 +268,9 @@ See [security](security.md) for release integrity and the supply chain measures.
 ## Testing
 
 The updater tests are designed to use a local test feed on `127.0.0.1` with two builds (`X-test.1` → `X-test.2`) and a test key. The mirror is set through the real policy mechanism, so production builds need no test backdoor. Negative cases cover a wrong signature, a hash mismatch, a downgrade and an expired manifest; a rollback case starts a build with a deliberate boot failure. Details are in [testing](testing.md).
+
+## Implementation status
+
+Every package format and architecture in the table above is built and smoke-tested on every pull request (`app/electron-builder.config.mjs`), with the versionless asset names. The packages are unsigned so far.
+
+Not implemented yet: the signed feed, the update engine with its custom provider, the installers per format, the boot guard and rollback, the package repositories, the release pipeline and code signing.
