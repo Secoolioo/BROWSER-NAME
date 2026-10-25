@@ -1,0 +1,71 @@
+name: Bug report
+description: Something does not work as documented.
+labels: ['type: bug', 'status: needs triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Security vulnerabilities must **not** be reported here; follow [SECURITY.md](https://github.com/Secoolioo/lampo/blob/main/SECURITY.md) instead.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown under Menu → About.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Installation
+      options:
+        - Windows installer (.exe)
+        - Windows MSI
+        - macOS (.dmg)
+        - Linux AppImage
+        - Linux .deb / APT repository
+        - Linux .rpm / DNF repository
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2 (arm64), macOS 15.5, Ubuntu 24.04 (Wayland)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Click …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: Optional. Copy it from the diagnostics page; paths and user names are redacted automatically.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and found no duplicate.
+          required: true

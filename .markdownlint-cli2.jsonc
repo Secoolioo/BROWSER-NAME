@@ -1,0 +1,31 @@
+{
+  "config": {
+    "default": true,
+    // Long lines are fine in prose and tables.
+    "MD013": false,
+    // Inline HTML is used for the README hero and media.
+    "MD033": {
+      "allowed_elements": [
+        "p",
+        "strong",
+        "img",
+        "picture",
+        "source",
+        "a",
+        "br",
+        "sup",
+        "sub",
+        "kbd",
+        "details",
+        "summary",
+        "div",
+      ],
+    },
+    // Repeated headings are normal in changelogs and ADRs.
+    "MD024": { "siblings_only": true },
+    // The README opens with a centered hero block; templates start with a section.
+    "MD041": false,
+  },
+  "globs": ["**/*.md"],
+  "ignores": ["**/node_modules/**", "**/dist/**", "CHANGELOG.md"],
+}

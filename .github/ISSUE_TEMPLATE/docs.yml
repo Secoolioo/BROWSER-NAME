@@ -1,0 +1,17 @@
+name: Documentation
+description: Something in the documentation is missing, wrong or unclear.
+labels: ['type: docs', 'status: needs triage']
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page or file
+      placeholder: docs/user/workspaces.md
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What should change?
+    validations:
+      required: true

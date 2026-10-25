@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+release/
+coverage/
+*.tsbuildinfo
+
+# Website build
+website/.astro/
+website/dist/
+
+# Logs and local files
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*

@@ -1,0 +1,23 @@
+{
+  "name": "lampo-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "verify": "node tools/verify.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint:md": "markdownlint-cli2",
+    "check:commits": "node tools/ci/check-commits.ts"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "lefthook": "2.2.2",
+    "markdownlint-cli2": "0.24.0",
+    "prettier": "3.9.10"
+  }
+}

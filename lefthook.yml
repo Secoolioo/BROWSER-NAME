@@ -1,0 +1,11 @@
+# Local git hooks, installed automatically by `pnpm install`.
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: pnpm exec commitlint --edit {1}
+
+pre-commit:
+  jobs:
+    - name: format
+      glob: '*.{md,json,jsonc,yml,yaml,js,mjs,cjs,ts,mts,css,html}'
+      run: pnpm exec prettier --check --no-error-on-unmatched-pattern {staged_files}

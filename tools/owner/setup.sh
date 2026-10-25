@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# One-time repository setup, run by the repository owner from a local clone.
+#
+# Requirements: git, the GitHub CLI (`gh auth login` as the owner), openssl
+# and, for the Linux package signing key, gpg. Git Bash on Windows works.
+#
+# Usage:
+#   bash tools/owner/setup.sh [--maintainers <login>[,<login>]] [--skip-keys] [--keys-only]
+#
+# The script is idempotent: running it again updates settings in place.
+# Private keys are only stored as GitHub environment secrets and in an
+# encrypted backup file; they are never written into the repository.
+set -euo pipefail
+
+MAINTAINERS=""
+SKIP_KEYS=false
+KEYS_ONLY=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --maintainers) MAINTAINERS="${2:-}"; shift 2 ;;
+    --skip-keys) SKIP_KEYS=true; shift ;;
+    --keys-only) KEYS_ONLY=true; shift ;;
+    -h | --help) sed -n '2,13p' "$0"; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+
+cd "$(git rev-parse --show-toplevel)"
+
+brand() {
+  sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p" brand.json
+}
+
+step() {
+  printf '\n\033[1m==> %s\033[0m\n' "$1"
+}
+
+need() {
+  command -v "$1" >/dev/null 2>&1 || { echo "Missing required tool: $1" >&2; exit 1; }
+}
+
+need gh
+need git
+need openssl
+
+PRODUCT=$(brand productName)
+REPO=$(brand repository)
+WEBSITE=$(brand website)
+TAGLINE=$(brand tagline)
+NAME=${REPO#*/}
+OWNER=${REPO%%/*}
+
+gh auth status >/dev/null
+LOGIN=$(gh api user --jq '.login')
+USER_ID=$(gh api user --jq '.id')
+if [[ "$LOGIN" != "$OWNER" ]]; then
+  echo "Authenticated as $LOGIN, but the repository owner is $OWNER." >&2
+  exit 1
+fi
+
+CURRENT=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+
+configure_repository() {
+  step "Repository name, description and topics"
+  if [[ "${CURRENT#*/}" != "$NAME" ]]; then
+    gh repo rename "$NAME" --repo "$CURRENT" --yes
+    git remote set-url origin "https://github.com/$REPO.git"
+  fi
+  gh repo edit "$REPO" \
+    --description "$TAGLINE" \
+    --homepage "$WEBSITE" \
+    --enable-wiki=false \
+    --enable-projects=false \
+    --enable-squash-merge \
+    --enable-merge-commit=false \
+    --enable-rebase-merge=false \
+    --enable-auto-merge \
+    --delete-branch-on-merge \
+    --add-topic browser,desktop-browser,chromium,electron,typescript,privacy,customization,workspaces,enterprise
+
+  step "Merge settings"
+  gh api -X PATCH "repos/$REPO" \
+    -f squash_merge_commit_title=PR_TITLE \
+    -f squash_merge_commit_message=BLANK \
+    -F allow_update_branch=true >/dev/null
+
+  step "Immutable releases"
+  gh api -X PUT "repos/$REPO/immutable-releases" >/dev/null
+
+  step "Actions permissions"
+  gh api -X PUT "repos/$REPO/actions/permissions" \
+    -F enabled=true -f allowed_actions=all -F sha_pinning_required=true >/dev/null
+  gh api -X PUT "repos/$REPO/actions/permissions/workflow" \
+    -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false >/dev/null
+
+  step "Rulesets"
+  local file name id
+  for file in .github/rulesets/*.json; do
+    name=$(sed -n 's/^  "name": *"\([^"]*\)".*/\1/p' "$file")
+    id=$(gh api "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$name\") | .id")
+    if [[ -n "$id" ]]; then
+      gh api -X PUT "repos/$REPO/rulesets/$id" --input "$file" >/dev/null
+      echo "updated ruleset $name"
+    else
+      gh api -X POST "repos/$REPO/rulesets" --input "$file" >/dev/null
+      echo "created ruleset $name"
+    fi
+  done
+
+  step "GitHub Pages (built by workflows)"
+  if gh api "repos/$REPO/pages" >/dev/null 2>&1; then
+    gh api -X PUT "repos/$REPO/pages" -f build_type=workflow >/dev/null
+  else
+    gh api -X POST "repos/$REPO/pages" -f build_type=workflow >/dev/null
+  fi
+
+  step "Environments restricted to main"
+  local env
+  for env in release automation; do
+    gh api -X PUT "repos/$REPO/environments/$env" --input - >/dev/null <<JSON
+{"deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}
+JSON
+    if ! gh api "repos/$REPO/environments/$env/deployment-branch-policies" \
+      --jq '.branch_policies[].name' | grep -qx main; then
+      gh api -X POST "repos/$REPO/environments/$env/deployment-branch-policies" \
+        -f name=main -f type=branch >/dev/null
+    fi
+  done
+
+  step "Security features"
+  gh api -X PUT "repos/$REPO/vulnerability-alerts" >/dev/null
+  gh api -X DELETE "repos/$REPO/automated-security-fixes" >/dev/null
+  gh api -X PUT "repos/$REPO/private-vulnerability-reporting" >/dev/null
+  gh api -X PATCH "repos/$REPO" --input - >/dev/null <<JSON
+{"security_and_analysis": {"secret_scanning": {"status": "enabled"}, "secret_scanning_push_protection": {"status": "enabled"}}}
+JSON
+
+  step "Repository variables"
+  gh variable set OWNER_COMMIT_EMAIL --repo "$REPO" --body "$USER_ID+$LOGIN@users.noreply.github.com"
+
+  if [[ -n "$MAINTAINERS" ]]; then
+    step "Maintainer invitations"
+    local maintainer
+    IFS=',' read -r -a list <<<"$MAINTAINERS"
+    for maintainer in "${list[@]}"; do
+      gh api -X PUT "repos/$REPO/collaborators/$maintainer" -f permission=push >/dev/null
+      echo "invited $maintainer"
+    done
+  fi
+}
+
+create_keys() {
+  step "Signing keys"
+  local work
+  work=$(mktemp -d)
+  trap 'rm -rf "$work"' EXIT
+  umask 077
+
+  # Update feed signing: the current key signs releases; the next key is
+  # embedded in the browser for rotation and stays offline until then.
+  openssl genpkey -algorithm ed25519 -out "$work/update-current.pem"
+  openssl genpkey -algorithm ed25519 -out "$work/update-next.pem"
+  openssl pkey -in "$work/update-current.pem" -pubout -out "$work/update-current.pub.pem"
+  openssl pkey -in "$work/update-next.pem" -pubout -out "$work/update-next.pub.pem"
+
+  # Self-signed macOS code signing identity. It keeps the code signature
+  # stable across updates until an Apple Developer ID replaces it.
+  local mac_password
+  mac_password=$(openssl rand -hex 24)
+  openssl req -x509 -newkey rsa:3072 -nodes -days 3650 \
+    -subj "/CN=$PRODUCT Code Signing" \
+    -addext "basicConstraints=critical,CA:false" \
+    -addext "keyUsage=critical,digitalSignature" \
+    -addext "extendedKeyUsage=critical,codeSigning" \
+    -keyout "$work/macos-signing.key" -out "$work/macos-signing.crt" 2>/dev/null
+  openssl pkcs12 -export -inkey "$work/macos-signing.key" -in "$work/macos-signing.crt" \
+    -name "$PRODUCT Code Signing" -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
+    -passout "pass:$mac_password" -out "$work/macos-signing.p12"
+
+  # Linux package repository signing key.
+  local have_gpg=false
+  mkdir -p "$work/gnupg"
+  chmod 700 "$work/gnupg"
+  if command -v gpg >/dev/null 2>&1 &&
+    gpg --homedir "$work/gnupg" --batch --pinentry-mode loopback --passphrase '' \
+      --quick-generate-key "$PRODUCT Packages" ed25519 sign 5y 2>/dev/null; then
+    have_gpg=true
+    gpg --homedir "$work/gnupg" --batch --pinentry-mode loopback --passphrase '' \
+      --armor --export-secret-keys >"$work/linux-repo.asc"
+    gpg --homedir "$work/gnupg" --armor --export >"$work/linux-repo.pub.asc"
+    gpgconf --homedir "$work/gnupg" --kill gpg-agent 2>/dev/null || true
+  else
+    echo "gpg is missing or failed: skipping the Linux repository key. Install GnuPG and rerun with --keys-only."
+  fi
+
+  step "Uploading environment secrets"
+  gh secret set UPDATE_SIGNING_KEY --env release --repo "$REPO" <"$work/update-current.pem"
+  openssl base64 -A -in "$work/macos-signing.p12" | gh secret set MAC_CSC_LINK --env release --repo "$REPO"
+  printf '%s' "$mac_password" | gh secret set MAC_CSC_KEY_PASSWORD --env release --repo "$REPO"
+  if [[ "$have_gpg" == true ]]; then
+    gh secret set LINUX_REPO_GPG_KEY --env release --repo "$REPO" <"$work/linux-repo.asc"
+  fi
+
+  local token
+  read -r -s -p "Fine-grained personal access token for this repository: " token
+  echo
+  if [[ -n "$token" ]]; then
+    printf '%s' "$token" | gh secret set OWNER_TOKEN --env automation --repo "$REPO"
+    printf '%s' "$token" | gh secret set OWNER_TOKEN --env release --repo "$REPO"
+  else
+    echo "No token entered: OWNER_TOKEN was not set."
+  fi
+
+  step "Encrypted offline backup"
+  local backup
+  backup="$PWD/../$NAME-keys-backup-$(date +%Y%m%d).tar.enc"
+  printf '%s\n' "$mac_password" >"$work/macos-signing.password"
+  tar -C "$work" --exclude gnupg -cf - . | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -out "$backup"
+  echo "Backup written to $backup. Store it offline together with its passphrase."
+
+  step "Public keys"
+  local out="$PWD/../$NAME-public-keys"
+  mkdir -p "$out"
+  cp "$work/update-current.pub.pem" "$work/update-next.pub.pem" "$work/macos-signing.crt" "$out/"
+  if [[ "$have_gpg" == true ]]; then
+    cp "$work/linux-repo.pub.asc" "$out/"
+  fi
+  echo "Public keys written to $out. Share them with the maintainers; they are committed to the repository."
+}
+
+if [[ "$KEYS_ONLY" != true ]]; then
+  configure_repository
+fi
+if [[ "$SKIP_KEYS" != true ]]; then
+  create_keys
+fi
+
+step "Done"
+echo "Remaining manual step: once the brand assets are merged, upload assets/brand/social-preview.png under Settings → General → Social preview."
