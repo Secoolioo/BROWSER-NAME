@@ -1,6 +1,6 @@
 # IPC contracts
 
-> **Status:** approved design, not yet implemented. This page describes how inter-process communication is designed to work and will be updated as the implementation lands.
+> **Status:** partly implemented. Contracts, router checks and the shell bridge exist. See [implementation status](#implementation-status).
 
 Astela's user interface runs in sandboxed renderers, and its logic runs in the browser process. All traffic between them is designed to go through typed contracts that the browser process validates on every call. The decision record is ADR 0007 (IPC contracts and validation); see the [decision record index](../adr/README.md).
 
@@ -85,3 +85,14 @@ Web tabs also cannot navigate to, embed or load `app://` pages. That guard belon
 - **Security:** dedicated tests will check the `webPreferences` of every created `WebContents`, the Content Security Policy of the `app://` pages and the navigation locks of the shell.
 
 [testing.md](testing.md) describes the test levels, and [security.md](security.md) the wider security model.
+
+## Implementation status
+
+Implemented for the shell and the internal pages:
+
+- **Contracts** (`app/src/shared/ipc/`): `defineRequest` and `defineEvent` with Valibot schemas and a capability per channel.
+- **Router** (`app/src/platform/electron/ipc-gate.ts`, `ipc-router.ts`): every message passes the checks above in order (registered sender, main frame, origin, capability, schema, then a token-bucket rate limit). Rejected messages are logged locally and never reach a handler.
+- **Bridges** (`app/src/preload/`): the shell bridge exposes only `invoke` and `on` for its allow-listed channels; the page bridge is scoped by a capability given on its command line.
+- **State:** the shell receives one state snapshot per change, batched within 16 ms.
+
+Not implemented yet: the overlay bridge, property-based tests of every contract, and the typed client generated from the contracts.
