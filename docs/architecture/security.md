@@ -192,7 +192,7 @@ The [roadmap](../roadmap.md) lists the milestones.
 
 ## Implementation status
 
-The security baseline is implemented in `app/src/platform/electron/` and checked by end-to-end tests:
+The security baseline is implemented in `app/src/platform/electron/` and `app/electron-builder.config.mjs` and checked by end-to-end and package smoke tests:
 
 - Every view runs sandboxed with context isolation and without Node integration; tabs have no preload.
 - Every session denies permission requests, permission checks, device access and screen capture by default.
@@ -202,5 +202,6 @@ The security baseline is implemented in `app/src/platform/electron/` and checked
 - Client certificates are never selected automatically.
 - The user agent carries neither the app nor the Electron token.
 - Spellchecking is off on Windows and Linux.
+- Every package sets the fuses listed above; the package smoke test reads them back from the installed binary.
 
 Not implemented yet: the permission prompt and site list, the certificate error page, HTTPS-First, DNS over HTTPS, the malware and phishing lists, and the web platform API inventory in CI.
