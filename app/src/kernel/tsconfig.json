@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../../.tsbuild/kernel"
+  },
+  "include": ["**/*.ts"],
+  "references": [{ "path": "../shared" }]
+}

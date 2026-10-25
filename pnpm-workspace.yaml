@@ -1,5 +1,14 @@
-packages: []
+packages:
+  - app
+  - tools
 
 # Only these dependencies may run install scripts.
 allowBuilds:
   lefthook: true
+
+# dependency-cruiser loads TypeScript at runtime without declaring it. It needs the
+# TypeScript 6 API, so the tools package provides that version as its peer.
+packageExtensions:
+  dependency-cruiser@18:
+    peerDependencies:
+      typescript: '>=5 <7'
