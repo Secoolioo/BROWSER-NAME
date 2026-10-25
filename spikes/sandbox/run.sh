@@ -33,6 +33,14 @@ run() {
 
 run appimage-default "$APPIMAGE_FILE"
 
+# Run the inner binary without the generated AppRun, which adds --no-sandbox by itself.
+"$APPIMAGE_FILE" --appimage-mount >"$OUT/mount.txt" 2>&1 &
+MOUNT_PID=$!
+for _ in $(seq 1 50); do [ -s "$OUT/mount.txt" ] && break; sleep 0.2; done
+MOUNT_DIR=$(head -1 "$OUT/mount.txt")
+note "mounted at $MOUNT_DIR"
+run inner-without-profile "$MOUNT_DIR/sandbox-spike"
+
 PROFILE=/etc/apparmor.d/sandbox-spike-appimage
 sudo tee "$PROFILE" >/dev/null <<'PROFILE'
 abi <abi/4.0>,
@@ -45,6 +53,8 @@ profile sandbox-spike-appimage /tmp/.mount_*/sandbox-spike flags=(unconfined) {
 PROFILE
 if sudo apparmor_parser -r "$PROFILE"; then note "appimage profile: loaded"; else note "appimage profile: failed"; fi
 run appimage-with-profile "$APPIMAGE_FILE"
+run inner-with-profile "$MOUNT_DIR/sandbox-spike"
+kill "$MOUNT_PID" 2>/dev/null
 sudo apparmor_parser -R "$PROFILE" && sudo rm -f "$PROFILE"
 
 run appimage-no-sandbox "$APPIMAGE_FILE" --no-sandbox
