@@ -11,9 +11,11 @@ note "restrict_unprivileged_userns=$(cat /proc/sys/kernel/apparmor_restrict_unpr
 if unshare --user --map-root-user true 2>/dev/null; then note "unshare: ok"; else note "unshare: blocked"; fi
 
 npm install --no-audit --no-fund >/dev/null
-npx electron-builder --publish never >"$OUT/build.log" 2>&1 || { note "build failed"; tail -20 "$OUT/build.log"; exit 1; }
-APPIMAGE_FILE=$(echo "$PWD"/dist/*.AppImage)
-DEB_FILE=$(echo "$PWD"/dist/*.deb)
+# fpm expands NAME, VERSION and ARCH in output paths, so build outside the checkout.
+DIST="${RUNNER_TEMP:-/tmp}/sandbox-spike-dist"
+npx electron-builder --publish never -c.directories.output="$DIST" >"$OUT/build.log" 2>&1 || { note "build failed"; tail -20 "$OUT/build.log"; exit 1; }
+APPIMAGE_FILE=$(echo "$DIST"/*.AppImage)
+DEB_FILE=$(echo "$DIST"/*.deb)
 chmod +x "$APPIMAGE_FILE"
 
 run() {
