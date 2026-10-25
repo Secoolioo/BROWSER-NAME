@@ -30,7 +30,7 @@ pnpm install   # also installs the git hooks
 pnpm verify    # every check CI runs in the verify job
 ```
 
-`pnpm verify --only <name>[,<name>]` runs a subset. Run the full command before pushing.
+`pnpm verify --only <name>[,<name>]` runs a subset: `format`, `markdown`, `typecheck`, `lint`, `architecture`, `test`, `shell`. Run the full command before pushing.
 
 ## Dependencies
 
@@ -47,15 +47,15 @@ pnpm verify    # every check CI runs in the verify job
 
 ## Automation status
 
-| Workflow                         | Purpose                                                              | Status                            |
-| -------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
-| `ci.yml`                         | `verify`, commit rules, workflow security, `ci-gate`                 | active                            |
-| `pr-title.yml`                   | pull request title lint                                              | active                            |
-| `branch-push.yml`, `auto-pr.yml` | owner pull requests with auto-merge                                  | active                            |
-| `labels.yml`                     | label sync from `.github/labels.yml`                                 | active                            |
-| `codeql.yml`, `scorecard.yml`    | code scanning and OpenSSF Scorecard                                  | active                            |
-| `repo-setup.yml`                 | applies repository settings from `tools/owner/setup.sh` (owner only) | active                            |
-| `release.yml`, `pages.yml`       | packages, release, website, update feeds, package repositories       | arrives with the release pipeline |
+| Workflow                         | Purpose                                                                      | Status                            |
+| -------------------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
+| `ci.yml`                         | `verify`, unit tests on three OS, commit rules, workflow security, `ci-gate` | active                            |
+| `pr-title.yml`                   | pull request title lint                                                      | active                            |
+| `branch-push.yml`, `auto-pr.yml` | owner pull requests with auto-merge                                          | active                            |
+| `labels.yml`                     | label sync from `.github/labels.yml`                                         | active                            |
+| `codeql.yml`, `scorecard.yml`    | code scanning and OpenSSF Scorecard                                          | active                            |
+| `repo-setup.yml`                 | applies repository settings from `tools/owner/setup.sh` (owner only)         | active                            |
+| `release.yml`, `pages.yml`       | packages, release, website, update feeds, package repositories               | arrives with the release pipeline |
 
 ## Releases
 

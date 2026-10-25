@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "eqeqeq": "error",
+    "no-console": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "import/no-cycle": "error",
+    "import/no-self-import": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/require-await": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "no-await-in-loop": "off",
+    "vitest/require-mock-type-parameters": "off"
+  },
+  "overrides": [
+    {
+      "files": ["tools/**", "spikes/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["app/src/kernel/di/container.ts", "app/src/kernel/events/event-bus.ts"],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.tsbuild/**", "spikes/**"]
+}
