@@ -45,6 +45,9 @@ jobs:
         if: runner.os != 'Linux'
         working-directory: spikes/runtime
         run: npx electron . --spike=all --out=result.json
+      - name: Summarize
+        if: always()
+        run: node spikes/runtime/summarize.mjs spikes/runtime/result.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -81,6 +84,9 @@ jobs:
           weston --backend=headless --socket=wayland-1 --idle-time=0 &
           for _ in $(seq 1 50); do [ -S "$XDG_RUNTIME_DIR/wayland-1" ] && break; sleep 0.2; done
           WAYLAND_DISPLAY=wayland-1 npx electron . --ozone-platform=wayland --spike=reparent --out=result.json
+      - name: Summarize
+        if: always()
+        run: node spikes/runtime/summarize.mjs spikes/runtime/result.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
