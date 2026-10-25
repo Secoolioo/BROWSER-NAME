@@ -41,6 +41,16 @@ jobs:
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - name: Build, serve and update
         run: bash spikes/updater/run.sh
+      - name: Summarize
+        if: always()
+        run: |
+          cd spikes/updater/out
+          {
+            cat results.txt timings.txt 2>/dev/null
+            grep -hE '\.(exe|AppImage|zip|blockmap)$' dist.txt 2>/dev/null | awk '{ print $5, $NF }'
+            grep -hiE 'Full:|Cannot download differentially|error' spike.log 2>/dev/null | grep -v debug | cut -c1-300 | head -8
+          } | sed 's/%/%25/g' | tr '\n' '|' | sed 's/^/::notice title=updater ${{ matrix.os }}::/'
+          echo
       - name: Collect
         if: always()
         run: |
