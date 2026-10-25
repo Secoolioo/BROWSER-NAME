@@ -1,0 +1,35 @@
+{
+  "name": "sandbox-spike",
+  "productName": "SandboxSpike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "description": "Sandbox spike",
+  "author": "Lampo maintainers",
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "io.github.secoolioo.sandboxspike",
+    "productName": "SandboxSpike",
+    "executableName": "sandbox-spike",
+    "files": [
+      "main.mjs",
+      "package.json"
+    ],
+    "electronLanguages": [
+      "en-US"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "artifactName": "sandbox-spike-linux-${arch}.${ext}",
+      "category": "Network",
+      "maintainer": "Lampo maintainers"
+    }
+  }
+}

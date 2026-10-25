@@ -1,0 +1,39 @@
+name: Spike sandbox
+
+on:
+  push:
+    branches: ['spike/sandbox']
+
+permissions: {}
+
+jobs:
+  sandbox:
+    name: sandbox (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Prepare
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2t64 xvfb
+          Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Run
+        run: bash spikes/sandbox/run.sh
+      - name: Summarize
+        if: always()
+        run: |
+          sed 's/%/%25/g' spikes/sandbox/out/results.txt | tr '\n' '|' | sed 's/^/::notice title=sandbox ${{ matrix.os }}::/'
+          echo
