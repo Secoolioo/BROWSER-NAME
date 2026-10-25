@@ -43,7 +43,7 @@ test('shows the shell with one tab and an address bar', async () => {
 
 test('navigates from the address bar and updates the tab', async () => {
   await navigate(`${server.origin}/index.html`);
-  const page = await waitForPage(browser.app, (url) => url.endsWith('/index.html'));
+  const page = await waitForPage(browser, (url) => url.endsWith('/index.html'));
   await expect(page).toHaveTitle('Fixture home');
   await expect(browser.shell.getByRole('tab', { name: 'Fixture home' })).toBeVisible();
   await page.click('#second');
@@ -74,7 +74,7 @@ test('opens, closes and reopens tabs with keyboard shortcuts', async () => {
 
 test('keeps web content away from internal APIs and pages', async () => {
   await navigate(`${server.origin}/probe.html`);
-  const page = await waitForPage(browser.app, (url) => url.endsWith('/probe.html'));
+  const page = await waitForPage(browser, (url) => url.endsWith('/probe.html'));
   expect(await page.evaluate(() => 'bridge' in window)).toBe(false);
   const status = await page.evaluate(() =>
     fetch('app://shell/').then(
@@ -90,7 +90,7 @@ test('keeps web content away from internal APIs and pages', async () => {
 
 test('denies permissions by default', async () => {
   await navigate(`${server.origin}/index.html`);
-  const page = await waitForPage(browser.app, (url) => url.endsWith('/index.html'));
+  const page = await waitForPage(browser, (url) => url.endsWith('/index.html'));
   expect(await page.evaluate(() => Notification.requestPermission())).toBe('denied');
   const geolocation = await page.evaluate(
     () =>
@@ -106,8 +106,10 @@ test('denies permissions by default', async () => {
 
 test('opens new windows from pages as tabs', async () => {
   await navigate(`${server.origin}/index.html`);
-  const page = await waitForPage(browser.app, (url) => url.endsWith('/index.html'));
+  const page = await waitForPage(browser, (url) => url.endsWith('/index.html'));
   await page.evaluate((url) => window.open(url), `${server.origin}/second.html`);
   await expect(browser.shell.getByRole('tab')).toHaveCount(2);
-  expect(await browser.app.evaluate(({ BaseWindow }) => BaseWindow.getAllWindows().length)).toBe(1);
+  expect(await browser.main.evaluate(({ BaseWindow }) => BaseWindow.getAllWindows().length)).toBe(
+    1,
+  );
 });
