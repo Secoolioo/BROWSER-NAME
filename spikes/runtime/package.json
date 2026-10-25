@@ -1,0 +1,9 @@
+{
+  "name": "spike-runtime",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "devDependencies": {
+    "electron": "45.0.0"
+  }
+}

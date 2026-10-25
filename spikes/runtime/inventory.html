@@ -1,0 +1,50 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>inventory</title>
+<script>
+  // Lists every global and navigator property, and probes every global that exposes a
+  // static availability() function, so the result can be compared across versions.
+  window.__inventory = (async () => {
+    const names = new Set();
+    for (let o = window; o; o = Object.getPrototypeOf(o)) {
+      for (const n of Object.getOwnPropertyNames(o)) names.add(n);
+    }
+    const nav = new Set();
+    for (let o = navigator; o; o = Object.getPrototypeOf(o)) {
+      for (const n of Object.getOwnPropertyNames(o)) nav.add(n);
+    }
+    const timeout = (ms) => new Promise((r) => setTimeout(() => r('timeout'), ms));
+    const probes = {};
+    for (const n of names) {
+      let v;
+      try {
+        v = window[n];
+      } catch {
+        continue;
+      }
+      if (v && typeof v.availability === 'function') {
+        const tries = [[], [{ sourceLanguage: 'en', targetLanguage: 'de' }]];
+        probes[n] = [];
+        for (const args of tries) {
+          try {
+            probes[n].push(String(await Promise.race([v.availability(...args), timeout(10000)])));
+          } catch (e) {
+            probes[n].push(`error: ${e?.name}: ${e?.message}`);
+          }
+        }
+      }
+    }
+    let brands = null;
+    try {
+      brands = navigator.userAgentData?.brands ?? null;
+    } catch {}
+    return {
+      secureContext: window.isSecureContext,
+      userAgent: navigator.userAgent,
+      brands,
+      globals: [...names].sort(),
+      navigator: [...nav].sort(),
+      availabilityProbes: probes,
+    };
+  })();
+</script>
