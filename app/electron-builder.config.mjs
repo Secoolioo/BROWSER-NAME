@@ -46,12 +46,10 @@ export default {
   },
   // electron-updater needs a publish configuration; the signed feed provider replaces it.
   publish: [{ provider: 'generic', url: `${brand.website}updates/` }],
-  win: {
-    target: [
-      { target: 'nsis', arch: ['x64', 'arm64'] },
-      { target: 'msi', arch: ['x64'] },
-    ],
-  },
+  // Targets carry no architectures: each CI job passes its own (`--x64`, `--arm64`), which
+  // the command line cannot narrow once the configuration lists them. MSI is built for x64
+  // only, because electron-builder marks an arm64 MSI as x64.
+  win: { target: ['nsis', 'msi'] },
   nsis: {
     artifactName: `${slug}-windows-\${arch}-setup.\${ext}`,
     oneClick: true,
@@ -67,10 +65,7 @@ export default {
     createStartMenuShortcut: true,
   },
   mac: {
-    target: [
-      { target: 'dmg', arch: ['arm64', 'x64'] },
-      { target: 'zip', arch: ['arm64', 'x64'] },
-    ],
+    target: ['dmg', 'zip'],
     category: 'public.app-category.productivity',
     hardenedRuntime: true,
     entitlements: 'build/entitlements.mac.plist',
@@ -84,11 +79,7 @@ export default {
   },
   dmg: { artifactName: `${slug}-macos-\${arch}.\${ext}` },
   linux: {
-    target: [
-      { target: 'AppImage', arch: ['x64', 'arm64'] },
-      { target: 'deb', arch: ['x64', 'arm64'] },
-      { target: 'rpm', arch: ['x64', 'arm64'] },
-    ],
+    target: ['AppImage', 'deb', 'rpm'],
     category: 'Network;WebBrowser',
     maintainer: `${productName} maintainers`,
     synopsis: brand.tagline,
