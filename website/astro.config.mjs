@@ -39,6 +39,10 @@ export default defineConfig({
       description: brand.tagline,
       logo: { src: '../assets/brand/app-icon.svg' },
       favicon: '/favicon.svg',
+      customCss: ['./src/styles/theme.css'],
+      expressiveCode: {
+        styleOverrides: { borderRadius: '4px', frames: { frameBoxShadowCssValue: 'none' } },
+      },
       social: [{ icon: 'github', label: 'Source code', href: repository }],
       lastUpdated: false,
       pagination: false,
