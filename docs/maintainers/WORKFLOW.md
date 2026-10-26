@@ -62,7 +62,7 @@ pnpm verify    # every check CI runs in the verify job
 
 ## Releases
 
-1. On a branch `chore/release-x.y.z` from an up-to-date `main`, run `pnpm release:prepare <patch|minor|major|beta>` (or give the exact version). It sets the version and adds the section to `CHANGELOG.md` from the Conventional Commits since the last release. Curate that section for users, and update version references in the documentation if there are any.
+1. On a branch `chore/release-x.y.z` from an up-to-date `main`, run `pnpm release:prepare <patch|minor|major|beta>` (or give the exact version). It sets the version and adds the section to `CHANGELOG.md` from the Conventional Commits since the last release. Curate that section for users, and update version references in the documentation if there are any. On Linux, run `pnpm screenshots` as well: it takes the README screenshots in `assets/screenshots/` from the real browser (needs `xvfb-run` and ImageMagick).
 2. Merge the pull request `chore(release): vX.Y.Z`.
 3. The release pipeline then runs on `main`:
    - It builds every package on native runners and smoke-tests each one.
@@ -83,7 +83,7 @@ Every update delivered to users meets all of these:
 - [ ] The version is bumped according to the rules above.
 - [ ] Everything is merged into `main`.
 - [ ] A GitHub release exists with all packages for all supported platforms and architectures, release notes, `SHA256SUMS` with signature, SBOM and attestations.
-- [ ] The website and documentation are live and current (version, changelog, screenshots, API reference).
+- [ ] The website and documentation are live and current (version, changelog, screenshots, API reference), and the README screenshots show the released version.
 - [ ] The update feeds and package repositories are live and signed, and live verification passed, so installed browsers receive the update.
 - [ ] A short release summary is shared with the team: version, changes, links, and any action needed from a maintainer.
 
