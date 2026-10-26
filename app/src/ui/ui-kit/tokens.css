@@ -1,6 +1,7 @@
 /*
  * Design tokens: the only source of colors, spacing, radii and motion. Themes override
- * these custom properties and nothing else.
+ * these custom properties and nothing else. Radii are 4 px for controls and 6 px for larger
+ * surfaces; sizes follow a 4 px grid (docs/architecture/design-system.md).
  */
 :root {
   color-scheme: light dark;
@@ -11,10 +12,10 @@
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
-  --radius-1: 6px;
-  --radius-2: 9px;
+  --radius-1: 4px;
+  --radius-2: 6px;
   --toolbar-height: 40px;
-  --tab-height: 34px;
+  --tab-height: 32px;
   --motion-fast: 120ms;
 
   --surface-0: oklch(97.5% 0.003 260);
@@ -26,6 +27,7 @@
   --border-1: oklch(88% 0.006 260);
   --accent: oklch(55% 0.17 255);
   --focus-ring: oklch(55% 0.17 255);
+  --danger: oklch(52% 0.19 25);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -39,6 +41,7 @@
     --border-1: oklch(36% 0.01 260);
     --accent: oklch(72% 0.14 255);
     --focus-ring: oklch(72% 0.14 255);
+    --danger: oklch(72% 0.15 25);
   }
 }
 
@@ -55,5 +58,5 @@ body {
   overflow: hidden;
   background: var(--surface-0);
   color: var(--text-1);
-  font: var(--font-size-ui) / 1.3 var(--font-ui);
+  font: var(--font-size-ui) / 16px var(--font-ui);
 }
