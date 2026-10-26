@@ -6,11 +6,11 @@ Security fixes are released for the latest version only, on both the stable and 
 
 ## Reporting a vulnerability
 
-Report vulnerabilities privately through GitHub: **[Report a vulnerability](https://github.com/Secoolioo/lampo/security/advisories/new)**. Do not open a public issue.
+Report vulnerabilities privately through GitHub: **[Report a vulnerability](https://github.com/Secoolioo/astela/security/advisories/new)**. Do not open a public issue.
 
 Please include:
 
-- the Lampo version, operating system and installation type,
+- the Astela version, operating system and installation type,
 - the steps to reproduce, or a proof of concept,
 - the impact you expect.
 

@@ -4,7 +4,7 @@ This document is the single source of truth for how changes reach users: branche
 
 ## Team
 
-Lampo is maintained by a team of three. The repository owner administers settings and secrets; all maintainers write code and review each other's work. Every commit is authored by the maintainer who wrote it, using a GitHub noreply address.
+Astela is maintained by a team of three. The repository owner administers settings and secrets; all maintainers write code and review each other's work. Every commit is authored by the maintainer who wrote it, using a GitHub noreply address.
 
 ## Branches and commits
 

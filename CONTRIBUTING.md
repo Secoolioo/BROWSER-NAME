@@ -1,6 +1,6 @@
-# Contributing to Lampo
+# Contributing to Astela
 
-Thank you for helping to build Lampo. This page covers the essentials; the complete process, including the Definition of Done, lives in [docs/maintainers/WORKFLOW.md](docs/maintainers/WORKFLOW.md).
+Thank you for helping to build Astela. This page covers the essentials; the complete process, including the Definition of Done, lives in [docs/maintainers/WORKFLOW.md](docs/maintainers/WORKFLOW.md).
 
 ## Before you start
 
@@ -26,4 +26,4 @@ pnpm verify    # runs every check that CI runs
 
 ## License
 
-Lampo is licensed under the [Mozilla Public License 2.0](LICENSE). By contributing, you agree that your contributions are licensed under the same terms.
+Astela is licensed under the [Mozilla Public License 2.0](LICENSE). By contributing, you agree that your contributions are licensed under the same terms.
