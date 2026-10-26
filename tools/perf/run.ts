@@ -23,6 +23,7 @@ import { createRequire } from 'node:module';
 import { cpus, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { FuseV1Options, FuseVersion, flipFuses } from '@electron/fuses';
+import { mannWhitneyGreater, median } from './stats.ts';
 import { memoryMetric, sampleTree, startTree, stopTree, type TreeSample } from './system.ts';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -64,6 +65,8 @@ const budgets = {
   memoryCeilingBytes: 350 * mib,
   cpuIdlePercent: 0.5,
   cpuExtraPoints: 0.2,
+  // A timing budget fails only when this test is significant; see stats.ts.
+  significance: 0.01,
   startChunkBytes: 300 * kib,
   uiTotalBytes: 1024 * kib,
   preloadBytes: 20 * kib,
@@ -96,14 +99,6 @@ function parseOptions(args: readonly string[]): {
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
-
-function median(values: readonly number[]): number {
-  const sorted = values.toSorted((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
-    : (sorted[middle] ?? 0);
-}
 
 function percentile(values: readonly number[], p: number): number {
   const sorted = values.toSorted((a, b) => a - b);
@@ -247,12 +242,16 @@ function startupChecks(m: Measurements): Check[] {
     bare * budgets.startupFactor,
     budgets.startupCeilingMs,
   );
+  // The browser exceeds the budget only if its times are significantly larger than the
+  // bare times shifted by the allowed difference, not just because its median is.
+  const allowed = m.startupMs.bare.map((t) => t + (limit - bare));
+  const p = mannWhitneyGreater(m.startupMs.browser, allowed);
   return [
     {
       metric: 'Warm start, spawn to interactive UI (median)',
-      value: `${browser.toFixed(0)} ms (bare ${bare.toFixed(0)} ms)`,
+      value: `${browser.toFixed(0)} ms (bare ${bare.toFixed(0)} ms, p = ${p.toFixed(3)})`,
       budget: `≤ ${limit.toFixed(0)} ms`,
-      pass: browser <= limit,
+      pass: browser <= limit || p >= budgets.significance,
     },
   ];
 }

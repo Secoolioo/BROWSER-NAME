@@ -137,7 +137,7 @@ The performance harness is designed to run on every pull request on all three op
 
 The harness (`tools/perf/run.ts`) runs in the `perf` job of every pull request on `ubuntu-24.04`, `windows-2025` and `macos-15` and fails the build when a budget is exceeded. It checks:
 
-- **Warm start:** n = 20 after two warm-up rounds, median against the bare reference and the ceiling. Each variant keeps its profile between runs and quits normally, as in real use. The interactive mark is the self-test report, written once the shell has loaded and rendered; the report also carries the marks `main`, `policies`, `ready`, `window`, `settings`, `shell` and `rendered` in milliseconds since process start, and the job summary shows their medians next to those of the reference.
+- **Warm start:** n = 20 after two warm-up rounds, median against the bare reference and the ceiling. A median over the budget fails only when a one-sided Mann-Whitney U test (`tools/perf/stats.ts`) shows that the browser's times are significantly larger than the reference times plus the allowed difference (p < 0.01); the job summary shows the p-value. On the 3-core macOS runners the difference to the reference varied between 73 and 152 ms across identical builds, so a median alone was not a reliable gate. Each variant keeps its profile between runs and quits normally, as in real use. The interactive mark is the self-test report, written once the shell has loaded and rendered; the report also carries the marks `main`, `policies`, `ready`, `window`, `settings`, `shell` and `rendered` in milliseconds since process start, and the job summary shows their medians next to those of the reference.
 - **Memory, idle:** n = 10 after 15 s, median, with the metric per operating system above. On Linux, the harness reads the memory maps of sandboxed processes through `sudo`.
 - **CPU, idle:** one 60-second window per variant, after 15 s.
 - **UI JavaScript, preloads and the main start-up path:** sizes of the built bundles.
@@ -145,4 +145,4 @@ The harness (`tools/perf/run.ts`) runs in the `perf` job of every pull request o
 
 The bare reference (`app/tests/perf/bare/`) runs in a copy of the Electron distribution as its app folder, with the fuses of a shipped package except the two asar fuses. Each group of measurements that fails is measured once more before the job fails. Results are kept as the `perf-<os>` workflow artifact.
 
-Not implemented yet: the comparison with the `main` build and its Mann-Whitney test, the cold start, the tab, workspace and 20-tab budgets, the installer budgets, the first-tab-painted mark, the weekly A/A run and the `perf.json` release asset.
+Not implemented yet: the comparison with the `main` build, the cold start, the tab, workspace and 20-tab budgets, the installer budgets, the first-tab-painted mark, the weekly A/A run and the `perf.json` release asset.

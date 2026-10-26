@@ -62,6 +62,11 @@ const checks: readonly Check[] = [
     command: ['pnpm', '--dir', 'app', 'exec', 'vitest', 'run', '--coverage'],
   },
   {
+    name: 'tools',
+    title: 'Tool tests (node --test)',
+    command: ['node', '--test', 'tools/**/*.test.ts'],
+  },
+  {
     name: 'api',
     title: 'API documentation comments (TypeDoc)',
     command: ['pnpm', '--dir', 'website', 'run', 'check:api'],
