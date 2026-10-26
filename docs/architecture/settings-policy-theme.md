@@ -110,15 +110,15 @@ CI will run a drift check in every pull request: it will regenerate every artifa
 
 A theme is a JSON file (`*.theme.json`) validated against a generated JSON Schema. User themes are stored in the profile folder `themes/`.
 
-| Field     | Content                                                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `$schema` | Reference to the theme JSON Schema.                                                                                       |
-| `id`      | Stable identifier of the theme.                                                                                           |
-| `name`    | Display name.                                                                                                             |
-| `version` | Version of the theme.                                                                                                     |
-| `base`    | `light` or `dark`: the appearance the theme builds on.                                                                    |
-| `tokens`  | Accent, surfaces, text, borders, focus, tab and toolbar specific tokens, radius, and optionally transparency or vibrancy. |
-| `newTab`  | Optional background for the new tab page.                                                                                 |
+| Field     | Content                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| `$schema` | Reference to the theme JSON Schema.                                                                  |
+| `id`      | Stable identifier of the theme.                                                                      |
+| `name`    | Display name.                                                                                        |
+| `version` | Version of the theme.                                                                                |
+| `base`    | `light` or `dark`: the appearance the theme builds on.                                               |
+| `tokens`  | Accent, surfaces, text, borders, focus, tab and toolbar specific tokens, and the radius (0 to 6 px). |
+| `newTab`  | Optional background for the new tab page.                                                            |
 
 Themes override design tokens and nothing else. The token set is described in the [design system](design-system.md).
 
@@ -149,7 +149,7 @@ The theme editor (`app://theme-editor`) is designed to offer:
 - import and export of theme files,
 - duplication of built-in themes as a starting point.
 
-In M1, the editor is a token list (colors and radius) with live preview and contrast warnings. Gradients, background images and a local theme gallery come later.
+In M1, the editor is a token list (colors and radius) with live preview and contrast warnings. Background images for the new tab page and a local theme gallery come later.
 
 ### Built-in themes
 

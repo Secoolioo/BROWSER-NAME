@@ -2,13 +2,27 @@
 
 > **Status:** partly implemented. The first design tokens exist; the rest of this page is design. See [implementation status](#implementation-status).
 
-The design system makes "beautiful" measurable. A small set of design tokens, fixed scales and automated checks keep every surface of Astela consistent, readable and calm, and turn visual quality into something CI can verify.
+The design system keeps every surface of Astela consistent, readable and calm. It consists of the design rules below, a small set of design tokens, fixed scales and automated checks that CI runs.
 
 The decisions behind it are recorded in ADR 0013 (theme system and design tokens) and ADR 0024 (icons and typography). See the [decision records](../adr/README.md). Themes, which override tokens, are described in [Settings, policies and themes](settings-policy-theme.md). The calm, distraction-free character of the UI follows from the [principles](principles.md).
 
+## Design rules
+
+Astela should look like carefully made desktop software, not like a template. These rules apply to the browser UI, the internal pages, the website, the README and the brand assets.
+
+- **Shape:** corner radii are small and uniform: 4 px for controls and at most 6 px for larger surfaces. There are no pill-shaped buttons and no strongly rounded cards.
+- **Color:** flat, restrained colors with one accent color. There are no gradients anywhere, including the logo, page headers and text. The accent is not a generic purple or indigo.
+- **Depth:** 1 px lines and differences in surface color separate areas. There are no glow or neon effects, no glass or blur effects and no large soft shadows.
+- **Hierarchy:** comes from typography (size, weight and spacing), not from effects. Sizes and spacing follow a dense 4 px grid, with 8 px steps for larger gaps.
+- **Icons:** one icon set with one stroke width. There are no emojis, no sparkle symbols, and no decorative blobs or generic illustrations.
+- **Platform:** the native window controls, menus, context menus and shortcuts of each operating system are respected.
+- **Motion:** only where it helps to follow a change, at most 150 ms long, and off when the system asks for reduced motion.
+- **Website:** no standard landing page layout (a centered hero with gradient text above a grid of icon cards). It shows real screenshots of the browser, never mockups.
+- **Writing:** factual and brief. No marketing phrases, no emoji lists, and dashes only where a sentence needs them.
+
 ## Design tokens
 
-Design tokens are the only source for colors, spacing, radii, shadows and motion. They live in the UI kit (`app/src/ui/ui-kit/tokens`) and reach every surface as CSS custom properties: the shell, the overlay and the internal pages.
+Design tokens are the only source for colors, spacing, radii, borders and motion. They live in the UI kit (`app/src/ui/ui-kit/tokens`) and reach every surface as CSS custom properties: the shell, the overlay and the internal pages.
 
 - Components use tokens and contain no hard-coded colors, sizes or durations.
 - Themes override tokens and nothing else. A theme can never restyle a component directly.
@@ -40,7 +54,7 @@ Astela is designed to offer three density levels. Density is a setting and chang
 | Density     | Toolbar height | Tab height | Spacing grid |
 | ----------- | -------------- | ---------- | ------------ |
 | Compact     | 32 px          | 28 px      | 4 px         |
-| Normal      | 40 px          | 34 px      | 4 px         |
+| Normal      | 40 px          | 32 px      | 4 px         |
 | Comfortable | 48 px          | 40 px      | 4 px         |
 
 At every density, click targets must be at least 24 × 24 px, as required by WCAG 2.2.
@@ -67,7 +81,7 @@ The size scale has five steps: 12, 13, 14, 16 and 20 px. The UI font and its siz
 
 ## Motion
 
-- Durations range from 120 to 200 ms.
+- Durations are at most 150 ms; the default is 120 ms.
 - Animations use only `transform` and `opacity`, so they never trigger layout.
 - When the system requests reduced motion (`prefers-reduced-motion`), animations are off.
 - No timers run while the browser is idle, which keeps idle CPU within its budget (see [Performance](performance.md)).
@@ -122,7 +136,7 @@ Automated checks:
 - **Accessibility:** axe-core runs in component and end-to-end tests and must report no serious or critical issues. Accessibility tree snapshots serve as regression tests.
 - **Screenshot diff:** screenshots of all four tab bar positions in light and dark are generated in every pull request and compared with the reference. Each layout preset is compared with its reference layout the same way.
 
-Design review: once per minor release, maintainers review the generated screenshot gallery (all tab bar positions, light and dark) and approve it.
+Design review: once per minor release, maintainers review the generated screenshot gallery (all tab bar positions, light and dark) against the design rules and approve it.
 
 How these checks fit into the overall test strategy is described in [Testing](testing.md).
 
