@@ -1,0 +1,284 @@
+# Dry run of the release and Pages workflows on a branch, with throwaway keys instead of the
+# release environment: signed macOS packages, rpm signing, manifest, checksums, SBOM,
+# attestations, feed, package repositories, website with download page and link check.
+name: Spike release
+
+on:
+  push:
+    branches: [spike/astela-run]
+
+permissions: {}
+
+jobs:
+  ci:
+    name: ci
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+
+  macos:
+    name: macos (signed)
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Create a certificate the way the owner setup does
+        run: |
+          work="$RUNNER_TEMP/cert"
+          mkdir -p "$work"
+          cat >"$work/macos-signing.cnf" <<CNF
+          [req]
+          distinguished_name = dn
+          x509_extensions = ext
+          prompt = no
+          [dn]
+          CN = Astela Code Signing
+          [ext]
+          basicConstraints = critical,CA:false
+          keyUsage = critical,digitalSignature
+          extendedKeyUsage = critical,codeSigning
+          subjectKeyIdentifier = hash
+          CNF
+          openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 3650 -config "$work/macos-signing.cnf" \
+            -keyout "$work/macos-signing.key" -out "$work/macos-signing.crt" 2>/dev/null
+          openssl pkcs12 -export -inkey "$work/macos-signing.key" -in "$work/macos-signing.crt" \
+            -name "Astela Code Signing" -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
+            -passout pass:spike -out "$work/macos-signing.p12"
+          openssl base64 -A -in "$work/macos-signing.p12" >"$work/p12.b64"
+      - name: Trust the signing certificate
+        id: identity
+        run: |
+          name=$(tools/release/import-mac-certificate.sh "$(cat "$RUNNER_TEMP/cert/p12.b64")" spike "$RUNNER_TEMP/signing.p12")
+          echo "name=$name" >>"$GITHUB_OUTPUT"
+      - name: Build signed packages
+        working-directory: app
+        env:
+          PACKAGE_DIR: ${{ runner.temp }}/packages
+          IDENTITY: ${{ steps.identity.outputs.name }}
+          CSC_KEY_PASSWORD: spike
+        run: |
+          export CSC_LINK="$RUNNER_TEMP/signing.p12"
+          pnpm exec electron-vite build
+          pnpm exec electron-builder --config electron-builder.config.mjs --publish never \
+            --mac --arm64 --x64 -c.mac.identity="$IDENTITY"
+          rm -f "$CSC_LINK"
+          for app in "$PACKAGE_DIR"/mac*/*.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign --display --requirements - "$app"
+          done
+      - name: Start the signed package
+        run: node tools/package/smoke.ts dmg "$(find "$RUNNER_TEMP/packages" -maxdepth 1 -name '*-arm64.dmg')"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-macos-signed
+          retention-days: 3
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/packages/*.dmg
+            ${{ runner.temp }}/packages/*.zip
+            ${{ runner.temp }}/packages/*.blockmap
+            ${{ runner.temp }}/packages/*.yml
+
+  screenshots:
+    name: screenshots
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Build the test package and the website
+        env:
+          E2E_BUILD: '1'
+          PACKAGE_DIR: ${{ runner.temp }}/e2e
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: |
+          (cd app && pnpm exec electron-vite build &&
+            pnpm exec electron-builder --config electron-builder.config.mjs --publish never --dir)
+          pnpm --dir website run build
+      - name: Take the screenshots
+        working-directory: app
+        env:
+          E2E_APP: ${{ runner.temp }}/e2e/linux-unpacked/astela
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb imagemagick
+          # The unpacked test build has no setuid sandbox helper; allow user namespaces instead.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          xvfb-run -a -s '-screen 0 3000x2000x24 -nocursor' \
+            node tests/screenshots/capture.ts ../website/dist "$RUNNER_TEMP/screenshots"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots
+          retention-days: 7
+          if-no-files-found: error
+          path: ${{ runner.temp }}/screenshots/*.png
+
+  assemble:
+    name: assemble and site
+    needs: [ci, macos, screenshots]
+    # The packages exist even when a test gate such as a performance budget fails.
+    if: ${{ !cancelled() && needs.macos.result == 'success' && needs.screenshots.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: 0.0.0
+      PRERELEASE: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y rpm createrepo-c apt-utils
+      - name: Throwaway keys
+        run: |
+          echo "GNUPGHOME=$RUNNER_TEMP/gnupg" >>"$GITHUB_ENV"
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
+          gpg --batch --passphrase '' --quick-generate-key 'Test repository <test@example.invalid>' ed25519 sign never
+          node tools/feed/feed.ts keygen "$RUNNER_TEMP/keys"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: packages-*
+          path: ${{ runner.temp }}/artifacts
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/dist
+      - name: Sign the rpm packages
+        run: |
+          for dir in "$RUNNER_TEMP"/artifacts/packages-linux-*; do
+            node tools/linux-repo/repo.ts sign-rpms "$dir"
+          done
+          rpm -qpi "$RUNNER_TEMP"/artifacts/packages-linux-x64/*.rpm | grep -i signature
+      - name: Assemble the release files and the update manifest
+        run: |
+          art="$RUNNER_TEMP/artifacts"
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+          mac=packages-macos
+          if [[ -d "$art/packages-macos-signed" ]]; then mac=packages-macos-signed; fi
+          echo "macOS packages from $mac"
+          folders=()
+          for name in packages-linux-x64 packages-linux-arm64 packages-windows-x64 packages-windows-arm64 "$mac"; do
+            folders+=(--packages "$art/$name")
+            find "$art/$name" -maxdepth 1 -type f ! -name '*.yml' -exec cp {} "$dist/" \;
+          done
+          if [[ "$PRERELEASE" == true ]]; then rm -f "$dist"/*.msi; fi
+          node tools/feed/feed.ts manifest "${folders[@]}" --version "$VERSION" --out "$dist/update-manifest.json"
+          cat "$dist/update-manifest.json"
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: ${{ runner.temp }}/dist/sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Checksums and signatures
+        run: |
+          cd "$RUNNER_TEMP/dist"
+          sha256sum -- * >"$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
+          node "$GITHUB_WORKSPACE/tools/feed/feed.ts" sign --key "$RUNNER_TEMP/keys/private.pem" SHA256SUMS
+          gpg --batch --armor --detach-sign -o SHA256SUMS.asc SHA256SUMS
+          gpg --verify SHA256SUMS.asc SHA256SUMS
+          ls -la
+          head -c 600 sbom.cdx.json
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/dist/*
+      - name: Build the site the way Pages does, from this one release
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: |
+          releases="$RUNNER_TEMP/releases"
+          site="$RUNNER_TEMP/site"
+          mkdir -p "$releases/manifests" "$releases/packages/$VERSION" "$site"
+          cp "$RUNNER_TEMP/dist/update-manifest.json" "$releases/manifests/$VERSION.json"
+          cp "$RUNNER_TEMP"/dist/*.deb "$RUNNER_TEMP"/dist/*.rpm "$releases/packages/$VERSION/"
+          # shellcheck disable=SC2016 # JavaScript template literal
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const dir = process.argv[1];
+            const sums = new Map(fs.readFileSync(path.join(dir, "SHA256SUMS"), "utf8").trim().split("\n").map((l) => l.split(/ +/).reverse()));
+            const assets = fs.readdirSync(dir).map((name) => ({ name, size: fs.statSync(path.join(dir, name)).size, url: `https://github.com/Secoolioo/astela/releases/download/v0.0.0/${name}`, sha256: sums.get(name) }));
+            fs.writeFileSync(process.argv[2], JSON.stringify({ repository: "Secoolioo/astela", releases: [{ version: "0.0.0", channel: "stable", publishedAt: new Date().toISOString(), page: "https://github.com/Secoolioo/astela/releases/tag/v0.0.0", assets }] }, null, 2));
+          ' "$RUNNER_TEMP/dist" "$releases/releases.json"
+          node tools/feed/feed.ts site --releases "$releases/releases.json" --manifests "$releases/manifests" \
+            --key "$RUNNER_TEMP/keys/private.pem" --out "$site"
+          node tools/linux-repo/repo.ts build --site "$site" --download-base "https://github.com/Secoolioo/astela/releases/download/" \
+            "$VERSION:stable:$releases/packages/$VERSION"
+          mkdir -p website/src/data website/public/media/screenshots/latest
+          cp "$releases/releases.json" website/src/data/releases.json
+          cp "$RUNNER_TEMP"/dist/screenshot-*.png website/public/media/screenshots/latest/
+          pnpm --dir website run build
+          cp -R website/dist/. "$site/"
+          find "$site" -maxdepth 3 -not -path '*/api/*' -not -path '*/docs/*' | sort | head -60
+      - name: Check the links
+        env:
+          LYCHEE_VERSION: 0.24.2
+          LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
+        run: |
+          archive="lychee-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}/$archive"
+          echo "$LYCHEE_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          base=$(node -p "new URL(require('./brand.json').website).pathname")
+          stage="$RUNNER_TEMP/link-check"
+          mkdir -p "$stage$base"
+          cp -R "$RUNNER_TEMP/site/." "$stage$base"
+          "$RUNNER_TEMP/lychee-x86_64-unknown-linux-gnu/lychee" --offline --no-progress \
+            --root-dir "$stage" "$stage/**/*.html"
+      - name: Serve the site and install from its repositories
+        run: |
+          base=$(node -p "new URL(require('./brand.json').website).pathname")
+          stage="$RUNNER_TEMP/link-check"
+          python3 -m http.server 8090 --bind 127.0.0.1 --directory "$stage" >/dev/null 2>&1 &
+          sleep 2
+          site="http://127.0.0.1:8090$base"
+          curl -fsS "${site}updates/v1/index.json"
+          curl -fsS "${site}apt/dists/stable/InRelease" | head -20
+          docker run --rm --network host ubuntu:24.04 bash -c "
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq >/dev/null && apt-get install -y -qq curl ca-certificates >/dev/null
+            curl -fsSL '${site}linux-repo.asc' -o /usr/share/keyrings/astela.asc
+            printf 'Types: deb\nURIs: %s\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/astela.asc\n' '${site}apt' >/etc/apt/sources.list.d/astela.sources
+            apt-get update && apt-cache policy astela"
