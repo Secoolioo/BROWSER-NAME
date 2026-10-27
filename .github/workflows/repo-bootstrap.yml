@@ -1,0 +1,50 @@
+# One-time run of the repository setup from this branch, before main has the
+# current setup script. It uses the repository secret OWNER_TOKEN and moves it
+# into the protected environments at the end, so later branch workflows no
+# longer see it. The certificate below is public; the owner holds its key.
+name: Repository bootstrap
+
+on:
+  push:
+    branches: [spike/repo-bootstrap]
+
+permissions: {}
+
+concurrency:
+  group: repo-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: setup
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Apply settings and create the signing keys
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_TOKEN }}
+          OWNER_TOKEN: ${{ secrets.OWNER_TOKEN }}
+          KEY_BACKUP_RECIPIENT: |
+            -----BEGIN CERTIFICATE-----
+            MIIBjzCCATWgAwIBAgIUTwsh7THoEMSk4Vb6BQz9BLWboNIwCgYIKoZIzj0EAwIw
+            HDEaMBgGA1UEAwwRQXN0ZWxhIEtleSBCYWNrdXAwIBcNMjYxMDI3MjAxMTQ3WhgP
+            MjEyNjEwMDMyMDExNDdaMBwxGjAYBgNVBAMMEUFzdGVsYSBLZXkgQmFja3VwMFkw
+            EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmxD+y1B+h4vYRM6ebAcWIsR/2hbK29VT
+            MJSuuMjsUVcT+7zOvF3FJSjO32XOE9Nf04rxUyFX8bYcaDDTYjPzyqNTMFEwHQYD
+            VR0OBBYEFPuwQsKXmRVB8ItpJlfGpiDeNRjbMB8GA1UdIwQYMBaAFPuwQsKXmRVB
+            8ItpJlfGpiDeNRjbMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSAAwRQIh
+            AI3GCr4vKEwilhre32RudffzT+n6KHPSuj+SHKfPF22DAiAEi0X4P9mbqXYte2ej
+            12VUV7gL/9vmW4OnGJiBOkwICw==
+            -----END CERTIFICATE-----
+        run: bash tools/owner/setup.sh --move-token
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: public-keys
+          retention-days: 7
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/*-public-keys/
