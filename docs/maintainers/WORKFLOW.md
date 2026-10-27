@@ -103,6 +103,17 @@ Some checks need people. Maintainers other than the release author do them once 
 - Release and automation secrets are stored in the GitHub environments `release` and `automation`, which only `main` may use. Pull request and branch workflows never see them.
 - Signing keys have an encrypted offline backup kept by the owner. Key rotation is documented together with the release pipeline.
 
+## Repository setup
+
+The owner sets up the repository once: locally with `bash tools/owner/setup.sh`, or from the browser:
+
+1. Create a fine-grained personal access token for this repository with Administration, Contents, Environments, Pages, Pull requests, Secrets, Variables and Workflows set to read and write.
+2. Add two repository secrets: `OWNER_TOKEN` with the token, and `KEY_BACKUP_PASSPHRASE` with a passphrase of at least 20 characters, kept in a password manager.
+3. Start the `Repository setup` workflow on `main` from the Actions tab, optionally with the logins of the maintainers to invite.
+4. Download the `keys-backup` artifact of the run, store it offline together with the passphrase, and delete the artifact. The public keys are in the run summary and in the `public-keys` artifact.
+
+The run moves the token into the `automation` and `release` environments and deletes the passphrase secret once the backup is written. Running it again updates the settings and keeps the existing signing keys.
+
 ## Renaming the product
 
 All product names and identifiers come from `brand.json`. To rename the product, change that file, apply the change everywhere it is used, and search the repository for the old name until nothing is left. The release that ships a new name must migrate user data, settings and package names automatically.

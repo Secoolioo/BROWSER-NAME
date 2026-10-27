@@ -13,7 +13,13 @@
 # environments and deletes the repository-level secret. The `Repository
 # setup` workflow uses it so that the setup can be started from the browser.
 #
-# The script is idempotent: running it again updates settings in place.
+# In that workflow (GITHUB_ACTIONS is set) the keys are created on the runner.
+# The backup is encrypted with the repository secret KEY_BACKUP_PASSPHRASE,
+# which is deleted afterwards, and the workflow offers the backup and the
+# public keys as artifacts.
+#
+# The script is idempotent: running it again updates settings in place and
+# keeps existing signing keys; only --keys-only replaces them.
 # Private keys are only stored as GitHub environment secrets and in an
 # encrypted backup file; they are never written into the repository.
 set -euo pipefail
@@ -28,7 +34,7 @@ while [[ $# -gt 0 ]]; do
     --skip-keys) SKIP_KEYS=true; shift ;;
     --keys-only) KEYS_ONLY=true; shift ;;
     --move-token) MOVE_TOKEN=true; shift ;;
-    -h | --help) sed -n '2,19p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,24p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -161,7 +167,32 @@ JSON
 
 create_keys() {
   step "Signing keys"
-  local work
+  if [[ "$KEYS_ONLY" != true ]]; then
+    local existing
+    if ! existing=$(gh secret list --env release --repo "$REPO" --json name --jq '.[].name'); then
+      echo "Could not read the secrets of the release environment." >&2
+      exit 1
+    fi
+    if grep -qx UPDATE_SIGNING_KEY <<<"$existing"; then
+      echo "The release environment already has signing keys; they stay. Run with --keys-only to replace them."
+      return
+    fi
+  fi
+
+  # In the workflow, the backup and the public keys go to the runner's temporary
+  # folder, from where the workflow uploads them as artifacts.
+  local in_actions=false out="$PWD/.."
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    in_actions=true
+    out=$RUNNER_TEMP
+    local passphrase=${KEY_BACKUP_PASSPHRASE:-}
+    if [[ ${#passphrase} -lt 20 ]]; then
+      echo "Add the repository secret KEY_BACKUP_PASSPHRASE (at least 20 characters) for the key backup." >&2
+      exit 1
+    fi
+  fi
+
+  # Global, so that the exit trap still sees it after this function returns.
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
   umask 077
@@ -177,11 +208,22 @@ create_keys() {
   # stable across updates until an Apple Developer ID replaces it.
   local mac_password
   mac_password=$(openssl rand -hex 24)
-  openssl req -x509 -newkey rsa:3072 -nodes -days 3650 \
-    -subj "/CN=$PRODUCT Code Signing" \
-    -addext "basicConstraints=critical,CA:false" \
-    -addext "keyUsage=critical,digitalSignature" \
-    -addext "extendedKeyUsage=critical,codeSigning" \
+  # A dedicated config: with -addext, the LibreSSL of macOS also adds its default CA
+  # extensions, and codesign rejects the duplicate as an unknown critical extension.
+  cat >"$work/macos-signing.cnf" <<CNF
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = $PRODUCT Code Signing
+[ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+subjectKeyIdentifier = hash
+CNF
+  openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 3650 -config "$work/macos-signing.cnf" \
     -keyout "$work/macos-signing.key" -out "$work/macos-signing.crt" 2>/dev/null
   openssl pkcs12 -export -inkey "$work/macos-signing.key" -in "$work/macos-signing.crt" \
     -name "$PRODUCT Code Signing" -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
@@ -211,31 +253,59 @@ create_keys() {
     gh secret set LINUX_REPO_GPG_KEY --env release --repo "$REPO" <"$work/linux-repo.asc"
   fi
 
-  local token
-  read -r -s -p "Fine-grained personal access token for this repository: " token
-  echo
-  if [[ -n "$token" ]]; then
-    printf '%s' "$token" | gh secret set OWNER_TOKEN --env automation --repo "$REPO"
-    printf '%s' "$token" | gh secret set OWNER_TOKEN --env release --repo "$REPO"
-  else
-    echo "No token entered: OWNER_TOKEN was not set."
+  # In the workflow, --move-token has already stored the token.
+  if [[ "$in_actions" != true ]]; then
+    local token
+    read -r -s -p "Fine-grained personal access token for this repository: " token
+    echo
+    if [[ -n "$token" ]]; then
+      printf '%s' "$token" | gh secret set OWNER_TOKEN --env automation --repo "$REPO"
+      printf '%s' "$token" | gh secret set OWNER_TOKEN --env release --repo "$REPO"
+    else
+      echo "No token entered: OWNER_TOKEN was not set."
+    fi
   fi
 
   step "Encrypted offline backup"
-  local backup
-  backup="$PWD/../$NAME-keys-backup-$(date +%Y%m%d).tar.enc"
+  local backup pass=()
+  backup="$out/$NAME-keys-backup-$(date +%Y%m%d).tar.enc"
+  if [[ "$in_actions" == true ]]; then
+    pass=(-pass env:KEY_BACKUP_PASSPHRASE)
+  fi
   printf '%s\n' "$mac_password" >"$work/macos-signing.password"
-  tar -C "$work" --exclude gnupg -cf - . | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -out "$backup"
-  echo "Backup written to $backup. Store it offline together with its passphrase."
+  tar -C "$work" --exclude gnupg -cf - . |
+    openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt ${pass[@]+"${pass[@]}"} -out "$backup"
+  if [[ "$in_actions" == true ]]; then
+    gh secret delete KEY_BACKUP_PASSPHRASE --repo "$REPO"
+    echo "Backup written. Download the keys-backup artifact, store it offline together with its passphrase, and delete the artifact."
+  else
+    echo "Backup written to $backup. Store it offline together with its passphrase."
+  fi
 
   step "Public keys"
-  local out="$PWD/../$NAME-public-keys"
-  mkdir -p "$out"
-  cp "$work/update-current.pub.pem" "$work/update-next.pub.pem" "$work/macos-signing.crt" "$out/"
+  local keys="$out/$NAME-public-keys"
+  mkdir -p "$keys"
+  cp "$work/update-current.pub.pem" "$work/update-next.pub.pem" "$work/macos-signing.crt" "$keys/"
   if [[ "$have_gpg" == true ]]; then
-    cp "$work/linux-repo.pub.asc" "$out/"
+    cp "$work/linux-repo.pub.asc" "$keys/"
   fi
-  echo "Public keys written to $out. Share them with the maintainers; they are committed to the repository."
+  if [[ "$in_actions" == true ]]; then
+    local file
+    {
+      echo "### Public keys"
+      for file in "$keys"/*; do
+        # shellcheck disable=SC2016 # Markdown code spans, not command substitution.
+        printf '\n`%s`\n\n```\n' "${file##*/}"
+        cat "$file"
+        echo '```'
+      done
+    } >>"$GITHUB_STEP_SUMMARY"
+    for file in "$keys"/*; do
+      printf '\n%s\n' "${file##*/}"
+      cat "$file"
+    done
+  fi
+  echo "Public keys written to $keys. Share them with the maintainers; they are committed to the repository."
 }
 
 move_token() {

@@ -1,8 +1,13 @@
-# Applies the repository settings from tools/owner/setup.sh. Started by the
-# owner from the Actions tab after adding the repository secret OWNER_TOKEN
-# (fine-grained token for this repository with Administration, Contents,
-# Environments, Pages, Pull requests, Secrets, Variables and Workflows set to
-# read and write). The run moves the token into the protected environments.
+# Applies the repository settings from tools/owner/setup.sh and creates the
+# signing keys. Started by the owner from the Actions tab after adding two
+# repository secrets:
+# - OWNER_TOKEN: fine-grained token for this repository with Administration,
+#   Contents, Environments, Pages, Pull requests, Secrets, Variables and
+#   Workflows set to read and write. The run moves it into the protected
+#   environments.
+# - KEY_BACKUP_PASSPHRASE: at least 20 characters; encrypts the key backup and
+#   is deleted once the backup is written.
+# Existing signing keys are kept, so the workflow can run again at any time.
 name: Repository setup
 
 on:
@@ -30,9 +35,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Apply settings
+      - name: Apply settings and create the signing keys
         env:
           GH_TOKEN: ${{ secrets.OWNER_TOKEN }}
           OWNER_TOKEN: ${{ secrets.OWNER_TOKEN }}
+          KEY_BACKUP_PASSPHRASE: ${{ secrets.KEY_BACKUP_PASSPHRASE }}
           MAINTAINERS: ${{ inputs.maintainers }}
-        run: bash tools/owner/setup.sh --skip-keys --move-token --maintainers "$MAINTAINERS"
+        run: bash tools/owner/setup.sh --move-token --maintainers "$MAINTAINERS"
+      # Encrypted; download it, store it offline and delete the artifact.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: keys-backup
+          retention-days: 1
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/*-keys-backup-*.tar.enc
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: public-keys
+          retention-days: 7
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/*-public-keys/
