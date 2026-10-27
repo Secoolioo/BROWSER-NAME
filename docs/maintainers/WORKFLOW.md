@@ -112,7 +112,9 @@ The owner sets up the repository once: locally with `bash tools/owner/setup.sh`,
 3. Start the `Repository setup` workflow on `main` from the Actions tab, optionally with the logins of the maintainers to invite.
 4. Open the draft release `Signing key backup` under Releases, download the encrypted backup, store it offline together with the passphrase, and delete the draft. Only people with write access can see drafts. The public keys are in the run summary and in the `public-keys` artifact.
 
-The run moves the token into the `automation` and `release` environments and deletes both repository secrets, so a rerun needs them added again. A rerun updates the settings and keeps the existing signing keys; the release secret `UPDATE_SIGNING_KEY` is stored last and marks a complete set.
+Instead of the passphrase, the repository variable `KEY_BACKUP_RECIPIENT` can hold a PEM certificate. The backup is then encrypted to it, and only the holder of the matching private key can read it: `openssl cms -decrypt -binary -inform DER -in <backup> -inkey <private key> | tar -x`. A run that receives the certificate stores it in that variable.
+
+The run creates the keys first and then moves the token into the `automation` and `release` environments. It deletes both repository secrets, so a rerun needs them added again. A rerun updates the settings and keeps the existing signing keys; the release secret `UPDATE_SIGNING_KEY` is stored last and marks a complete set.
 
 ## Renaming the product
 

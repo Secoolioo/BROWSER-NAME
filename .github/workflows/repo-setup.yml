@@ -7,8 +7,9 @@
 #   environments.
 # - KEY_BACKUP_PASSPHRASE: at least 32 characters from a password manager;
 #   encrypts the key backup, which the run stores as a draft release. The run
-#   deletes this secret at once.
-# Existing signing keys are kept. A rerun needs both secrets again.
+#   deletes this secret at once. Not needed when the repository variable
+#   KEY_BACKUP_RECIPIENT holds a certificate: the backup is then encrypted to it.
+# Existing signing keys are kept. A rerun needs OWNER_TOKEN again.
 name: Repository setup
 
 on:
@@ -41,6 +42,7 @@ jobs:
           GH_TOKEN: ${{ secrets.OWNER_TOKEN }}
           OWNER_TOKEN: ${{ secrets.OWNER_TOKEN }}
           KEY_BACKUP_PASSPHRASE: ${{ secrets.KEY_BACKUP_PASSPHRASE }}
+          KEY_BACKUP_RECIPIENT: ${{ vars.KEY_BACKUP_RECIPIENT }}
           MAINTAINERS: ${{ inputs.maintainers }}
         run: bash tools/owner/setup.sh --move-token --maintainers "$MAINTAINERS"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
