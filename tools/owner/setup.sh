@@ -264,11 +264,17 @@ CNF
     openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt ${pass[@]+"${pass[@]}"} -out "$backup"
   if [[ "$IN_ACTIONS" == true ]]; then
     # A draft release is visible only to people with write access, unlike the
-    # workflow artifacts of a public repository. A backup left by an incomplete
-    # run belongs to keys that were never stored, so it is replaced.
-    if gh release view "$BACKUP_RELEASE" --repo "$REPO" >/dev/null 2>&1; then
-      gh release delete "$BACKUP_RELEASE" --repo "$REPO" --yes
+    # workflow artifacts of a public repository. Backups left by incomplete runs
+    # belong to keys that were never stored, so they are replaced.
+    local drafts draft
+    if ! drafts=$(gh api "repos/$REPO/releases" --paginate \
+      --jq ".[] | select(.draft and .tag_name == \"$BACKUP_RELEASE\") | .id"); then
+      echo "Could not list the releases." >&2
+      exit 1
     fi
+    for draft in $drafts; do
+      gh api -X DELETE "repos/$REPO/releases/$draft" >/dev/null
+    done
     gh release create "$BACKUP_RELEASE" "$backup" --repo "$REPO" --draft \
       --title "Signing key backup" \
       --notes "Encrypted with KEY_BACKUP_PASSPHRASE. Download the file, store it offline together with the passphrase, then delete this draft." \
