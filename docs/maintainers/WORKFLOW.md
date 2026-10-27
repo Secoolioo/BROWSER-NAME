@@ -108,11 +108,11 @@ Some checks need people. Maintainers other than the release author do them once 
 The owner sets up the repository once: locally with `bash tools/owner/setup.sh`, or from the browser:
 
 1. Create a fine-grained personal access token for this repository with Administration, Contents, Environments, Pages, Pull requests, Secrets, Variables and Workflows set to read and write.
-2. Add two repository secrets: `OWNER_TOKEN` with the token, and `KEY_BACKUP_PASSPHRASE` with a passphrase of at least 20 characters, kept in a password manager.
+2. Add two repository secrets: `OWNER_TOKEN` with the token, and `KEY_BACKUP_PASSPHRASE` with a passphrase of at least 32 characters, generated and kept by a password manager.
 3. Start the `Repository setup` workflow on `main` from the Actions tab, optionally with the logins of the maintainers to invite.
-4. Download the `keys-backup` artifact of the run, store it offline together with the passphrase, and delete the artifact. The public keys are in the run summary and in the `public-keys` artifact.
+4. Open the draft release `Signing key backup` under Releases, download the encrypted backup, store it offline together with the passphrase, and delete the draft. Only people with write access can see drafts. The public keys are in the run summary and in the `public-keys` artifact.
 
-The run moves the token into the `automation` and `release` environments and deletes the passphrase secret once the backup is written. Running it again updates the settings and keeps the existing signing keys.
+The run moves the token into the `automation` and `release` environments and deletes both repository secrets, so a rerun needs them added again. A rerun updates the settings and keeps the existing signing keys; the release secret `UPDATE_SIGNING_KEY` is stored last and marks a complete set.
 
 ## Renaming the product
 

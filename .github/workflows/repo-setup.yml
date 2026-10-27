@@ -5,9 +5,10 @@
 #   Contents, Environments, Pages, Pull requests, Secrets, Variables and
 #   Workflows set to read and write. The run moves it into the protected
 #   environments.
-# - KEY_BACKUP_PASSPHRASE: at least 20 characters; encrypts the key backup and
-#   is deleted once the backup is written.
-# Existing signing keys are kept, so the workflow can run again at any time.
+# - KEY_BACKUP_PASSPHRASE: at least 32 characters from a password manager;
+#   encrypts the key backup, which the run stores as a draft release. The run
+#   deletes this secret at once.
+# Existing signing keys are kept. A rerun needs both secrets again.
 name: Repository setup
 
 on:
@@ -42,13 +43,6 @@ jobs:
           KEY_BACKUP_PASSPHRASE: ${{ secrets.KEY_BACKUP_PASSPHRASE }}
           MAINTAINERS: ${{ inputs.maintainers }}
         run: bash tools/owner/setup.sh --move-token --maintainers "$MAINTAINERS"
-      # Encrypted; download it, store it offline and delete the artifact.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: keys-backup
-          retention-days: 1
-          if-no-files-found: ignore
-          path: ${{ runner.temp }}/*-keys-backup-*.tar.enc
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: public-keys
