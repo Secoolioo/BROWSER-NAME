@@ -2,7 +2,7 @@
 // reference from the app's sources through TypeDoc; see docs/adr/0020.
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import starlightTypeDoc, { typeDocSidebarGroup } from 'starlight-typedoc';
 
 const brand = JSON.parse(readFileSync(new URL('../brand.json', import.meta.url), 'utf8'));
@@ -15,6 +15,19 @@ const {
   tsconfig,
   ...typeDoc
 } = JSON.parse(readFileSync(new URL('./typedoc.json', import.meta.url), 'utf8'));
+// Release data exists only in the Pages deployment (tools/release/collect.ts). Without it there
+// is no download page, so nothing links to packages that do not exist.
+const hasReleases = existsSync(new URL('./src/data/releases.json', import.meta.url));
+const downloadPage = {
+  name: 'download-page',
+  hooks: {
+    'astro:config:setup': ({ injectRoute }) => {
+      if (hasReleases) {
+        injectRoute({ pattern: '/download', entrypoint: './src/routes/download.astro' });
+      }
+    },
+  },
+};
 
 export default defineConfig({
   site: website.origin,
@@ -31,6 +44,10 @@ export default defineConfig({
       pagination: false,
       components: { Footer: './src/components/Footer.astro' },
       sidebar: [
+        ...(hasReleases ? [{ label: 'Download', link: '/download/' }] : []),
+        ...(existsSync(new URL('../CHANGELOG.md', import.meta.url))
+          ? [{ label: 'Changelog', link: '/changelog/' }]
+          : []),
         { label: 'Roadmap', link: '/docs/roadmap/' },
         { label: 'Architecture', items: [{ autogenerate: { directory: 'docs/architecture' } }] },
         { label: 'Decision records', items: [{ autogenerate: { directory: 'docs/adr' } }] },
@@ -43,9 +60,10 @@ export default defineConfig({
           tsconfig,
           output: 'api',
           sidebar: { label: 'API reference', collapsed: true },
-          typeDoc,
+          typeDoc: { ...typeDoc, outputFileStrategy: 'modules' },
         }),
       ],
     }),
+    downloadPage,
   ],
 });

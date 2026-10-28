@@ -1,0 +1,299 @@
+# Releases the version on main when it has no published release yet: runs the complete CI on
+# the commit, builds signed macOS packages, signs the rest, publishes the release with the
+# owner token and deploys the website, update feed and package repositories. Without a new
+# version, only the website is deployed. See docs/adr/0016-release-pipeline-without-bot-commits.md.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/release/plan.ts | tee -a "$GITHUB_OUTPUT"
+
+  ci:
+    name: ci
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+
+  macos:
+    name: macos (signed)
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: signing
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+        run: |
+          if [[ -n "$MAC_CSC_LINK" ]]; then echo "available=true"; else echo "available=false"; fi >>"$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.signing.outputs.available == 'true'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.signing.outputs.available == 'true'
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - if: steps.signing.outputs.available == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Trust the signing certificate
+        id: identity
+        if: steps.signing.outputs.available == 'true'
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+        run: |
+          name=$(tools/release/import-mac-certificate.sh "$MAC_CSC_LINK" "$MAC_CSC_KEY_PASSWORD" "$RUNNER_TEMP/signing.p12")
+          echo "name=$name" >>"$GITHUB_OUTPUT"
+      - name: Build signed packages
+        if: steps.signing.outputs.available == 'true'
+        working-directory: app
+        env:
+          PACKAGE_DIR: ${{ runner.temp }}/packages
+          IDENTITY: ${{ steps.identity.outputs.name }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+        run: |
+          export CSC_LINK="$RUNNER_TEMP/signing.p12"
+          pnpm exec electron-vite build
+          pnpm exec electron-builder --config electron-builder.config.mjs --publish never \
+            --mac --arm64 --x64 -c.mac.identity="$IDENTITY"
+          rm -f "$CSC_LINK"
+          for app in "$PACKAGE_DIR"/mac*/*.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign --display --requirements - "$app"
+          done
+      - name: Start the signed package
+        if: steps.signing.outputs.available == 'true'
+        run: node tools/package/smoke.ts dmg "$(find "$RUNNER_TEMP/packages" -maxdepth 1 -name '*-arm64.dmg')"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.signing.outputs.available == 'true'
+        with:
+          name: packages-macos-signed
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/packages/*.dmg
+            ${{ runner.temp }}/packages/*.zip
+            ${{ runner.temp }}/packages/*.blockmap
+            ${{ runner.temp }}/packages/*.yml
+
+  screenshots:
+    name: screenshots
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Build the test package and the website
+        env:
+          E2E_BUILD: '1'
+          PACKAGE_DIR: ${{ runner.temp }}/e2e
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: |
+          (cd app && pnpm exec electron-vite build &&
+            pnpm exec electron-builder --config electron-builder.config.mjs --publish never --dir)
+          pnpm --dir website run build
+      - name: Take the screenshots
+        working-directory: app
+        env:
+          E2E_APP: ${{ runner.temp }}/e2e/linux-unpacked/astela
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb imagemagick
+          # The unpacked test build has no setuid sandbox helper; allow user namespaces instead.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          xvfb-run -a -s '-screen 0 3000x2000x24 -nocursor' \
+            node tests/screenshots/capture.ts ../website/dist "$RUNNER_TEMP/screenshots"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots
+          retention-days: 7
+          if-no-files-found: error
+          path: ${{ runner.temp }}/screenshots/*.png
+
+  publish:
+    name: publish
+    needs: [plan, ci, macos, screenshots]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the release secrets
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          LINUX_REPO_GPG_KEY: ${{ secrets.LINUX_REPO_GPG_KEY }}
+          OWNER_TOKEN: ${{ secrets.OWNER_TOKEN }}
+        run: |
+          missing=()
+          [[ -n "$UPDATE_SIGNING_KEY" ]] || missing+=(UPDATE_SIGNING_KEY)
+          [[ -n "$LINUX_REPO_GPG_KEY" ]] || missing+=(LINUX_REPO_GPG_KEY)
+          [[ -n "$OWNER_TOKEN" ]] || missing+=(OWNER_TOKEN)
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::The release environment lacks: ${missing[*]}"
+            exit 1
+          fi
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Install rpm tools
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: packages-*
+          path: ${{ runner.temp }}/artifacts
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/dist
+      - name: Sign the rpm packages
+        env:
+          LINUX_REPO_GPG_KEY: ${{ secrets.LINUX_REPO_GPG_KEY }}
+        run: |
+          echo "GNUPGHOME=$RUNNER_TEMP/gnupg" >>"$GITHUB_ENV"
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
+          printf '%s\n' "$LINUX_REPO_GPG_KEY" | gpg --batch --import
+          for dir in "$RUNNER_TEMP"/artifacts/packages-linux-*; do
+            node tools/linux-repo/repo.ts sign-rpms "$dir"
+          done
+      - name: Assemble the release files and the update manifest
+        run: |
+          art="$RUNNER_TEMP/artifacts"
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+          mac=packages-macos
+          if [[ -d "$art/packages-macos-signed" ]]; then mac=packages-macos-signed; fi
+          echo "macOS packages from $mac"
+          folders=()
+          for name in packages-linux-x64 packages-linux-arm64 packages-windows-x64 packages-windows-arm64 "$mac"; do
+            folders+=(--packages "$art/$name")
+            find "$art/$name" -maxdepth 1 -type f ! -name '*.yml' -exec cp {} "$dist/" \;
+          done
+          # MSI has no prerelease versions, so it is published for stable releases only.
+          if [[ "$PRERELEASE" == true ]]; then rm -f "$dist"/*.msi; fi
+          node tools/feed/feed.ts manifest "${folders[@]}" --version "$VERSION" --out "$dist/update-manifest.json"
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: ${{ runner.temp }}/dist/sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Checksums and signatures
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          cd "$RUNNER_TEMP/dist"
+          sha256sum -- * >"$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
+          key="$RUNNER_TEMP/update.pem"
+          (umask 077 && printf '%s\n' "$UPDATE_SIGNING_KEY" >"$key")
+          node "$GITHUB_WORKSPACE/tools/feed/feed.ts" sign --key "$key" SHA256SUMS
+          rm -f "$key"
+          gpg --batch --armor --detach-sign -o SHA256SUMS.asc SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/dist/*
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET: ${{ github.sha }}
+        run: |
+          node tools/release/notes.ts "$VERSION" >"$RUNNER_TEMP/notes.md"
+          channel=(--latest)
+          if [[ "$PRERELEASE" == true ]]; then channel=(--prerelease); fi
+          # A draft left by an interrupted run is completed instead of duplicated.
+          if [[ "$(gh release view "$TAG" --repo "$REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null)" == true ]]; then
+            gh release edit "$TAG" --repo "$REPOSITORY" --target "$TARGET" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --repo "$REPOSITORY" --draft --target "$TARGET" --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/notes.md" "${channel[@]}"
+          fi
+          gh release upload "$TAG" --repo "$REPOSITORY" --clobber "$RUNNER_TEMP"/dist/*
+          gh release edit "$TAG" --repo "$REPOSITORY" --draft=false "${channel[@]}"
+
+  pages:
+    name: pages
+    needs: [plan, publish]
+    if: >-
+      always() && needs.plan.result == 'success' &&
+      (needs.plan.outputs.release != 'true' || needs.publish.result == 'success')
+    uses: ./.github/workflows/pages.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

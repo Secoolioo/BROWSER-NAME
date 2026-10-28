@@ -49,19 +49,20 @@ pnpm verify    # every check CI runs in the verify job
 
 ## Automation status
 
-| Workflow                         | Purpose                                                                                                                                                                                                    | Status                            |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `ci.yml`                         | `verify`, unit tests, end-to-end tests and performance budgets on three OS, packages for every format with smoke tests, update tests, package repository tests, commit rules, workflow security, `ci-gate` | active                            |
-| `pr-title.yml`                   | pull request title lint                                                                                                                                                                                    | active                            |
-| `branch-push.yml`, `auto-pr.yml` | owner pull requests with auto-merge                                                                                                                                                                        | active                            |
-| `labels.yml`                     | label sync from `.github/labels.yml`                                                                                                                                                                       | active                            |
-| `codeql.yml`, `scorecard.yml`    | code scanning and OpenSSF Scorecard                                                                                                                                                                        | active                            |
-| `repo-setup.yml`                 | applies repository settings from `tools/owner/setup.sh` (owner only)                                                                                                                                       | active                            |
-| `release.yml`, `pages.yml`       | packages, release, website, update feeds, package repositories                                                                                                                                             | arrives with the release pipeline |
+| Workflow                         | Purpose                                                                                                                                                                                                    | Status |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `ci.yml`                         | `verify`, unit tests, end-to-end tests and performance budgets on three OS, packages for every format with smoke tests, update tests, package repository tests, commit rules, workflow security, `ci-gate` | active |
+| `pr-title.yml`                   | pull request title lint                                                                                                                                                                                    | active |
+| `branch-push.yml`, `auto-pr.yml` | owner pull requests with auto-merge                                                                                                                                                                        | active |
+| `labels.yml`                     | label sync from `.github/labels.yml`                                                                                                                                                                       | active |
+| `codeql.yml`, `scorecard.yml`    | code scanning and OpenSSF Scorecard                                                                                                                                                                        | active |
+| `repo-setup.yml`                 | applies repository settings from `tools/owner/setup.sh` (owner only)                                                                                                                                       | active |
+| `release.yml`                    | on every push to `main`: releases a new version (tests, packages, signatures, SBOM, attestations, release), then calls `pages.yml`                                                                         | active |
+| `pages.yml`                      | website, update feed and package repositories from the published releases, link check, deployment and live verification; also weekly, which renews the feed signature                                      | active |
 
 ## Releases
 
-1. On a branch `chore/release-x.y.z`, prepare the release: bump the version, update `CHANGELOG.md` from the Conventional Commits since the last release and curate it, and update version references in the documentation.
+1. On a branch `chore/release-x.y.z` from an up-to-date `main`, run `pnpm release:prepare <patch|minor|major|beta>` (or give the exact version). It sets the version and adds the section to `CHANGELOG.md` from the Conventional Commits since the last release. Curate that section for users, and update version references in the documentation if there are any.
 2. Merge the pull request `chore(release): vX.Y.Z`.
 3. The release pipeline then runs on `main`:
    - It builds every package on native runners and smoke-tests each one.
@@ -69,7 +70,9 @@ pnpm verify    # every check CI runs in the verify job
    - It publishes the release, which creates the tag.
    - It deploys the website, documentation, update feeds and package repositories.
    - It verifies the live result.
-4. A failed run is resumed with `workflow_dispatch`. Published releases and their tags are immutable. If a published release is wrong, ship the next patch version instead.
+4. A failed run is resumed with `workflow_dispatch`; a draft left behind is completed. Published releases and their tags are immutable. If a published release is wrong, ship the next patch version instead.
+
+The release workflow refuses to run until the public keys are committed in `app/build/keys/` (`update-current.pub.pem`, `update-next.pub.pem`, `linux-repo.pub.asc`), the `release` environment holds `UPDATE_SIGNING_KEY`, `LINUX_REPO_GPG_KEY` and `OWNER_TOKEN`, and the repository name matches `brand.json`. `tools/owner/setup.sh` creates all of them. The fingerprints of the keys belong in `SECURITY.md` from the first release on.
 
 ## Definition of Done
 

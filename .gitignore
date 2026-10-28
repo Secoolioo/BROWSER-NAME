@@ -4,7 +4,7 @@ node_modules/
 # Build output
 dist/
 out/
-release/
+/app/release/
 coverage/
 test-results/
 playwright-report/
@@ -25,3 +25,5 @@ website/public/favicon.svg
 website/src/content/docs/api/
 website/src/content/docs/docs/
 website/src/content/docs/changelog.md
+website/src/data/
+website/public/media/
