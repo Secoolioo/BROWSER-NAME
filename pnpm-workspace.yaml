@@ -4,6 +4,7 @@ packages:
 
 # Only these dependencies may run install scripts.
 allowBuilds:
+  electron: true
   lefthook: true
 
 # dependency-cruiser loads TypeScript at runtime without declaring it. It needs the

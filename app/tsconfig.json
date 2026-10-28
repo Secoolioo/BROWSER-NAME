@@ -12,6 +12,18 @@
     },
     {
       "path": "src/platform"
+    },
+    {
+      "path": "src/main"
+    },
+    {
+      "path": "src/preload"
+    },
+    {
+      "path": "src/ui"
+    },
+    {
+      "path": "tsconfig.config.json"
     }
   ]
 }
