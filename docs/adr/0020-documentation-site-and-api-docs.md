@@ -36,17 +36,17 @@ The website is a workspace package `website/` built with Astro 7 and Starlight 0
 - **Generated, not committed:** the API reference, policy reference, ADMX and ADML templates and JSON Schemas are generated during the build, deployed to the website and attached to releases. A drift check keeps the generators deterministic.
 - **Pages of the site:**
 
-  | Path                                   | Content                                                                                                       |
-  | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-  | `/`                                    | Landing page with real screenshots, feature highlights and a download button that detects OS and architecture |
-  | `/download`                            | All packages of the current version with SHA-256, signature and attestation notes                             |
-  | `/features/*`                          | Workspaces, customization, tabs, privacy, performance with CI measurements, enterprise                        |
-  | `/docs/*`                              | User, admin and developer documentation with Pagefind search                                                  |
-  | `/api/*`                               | TypeDoc reference                                                                                             |
-  | `/changelog`                           | Rendered from `CHANGELOG.md`                                                                                  |
-  | `/updates/v1/*`                        | Signed update feed, no HTML                                                                                   |
-  | `/apt`, `/rpm`                         | Linux package repositories                                                                                    |
-  | `/media/screenshots/{version,latest}/` | Screenshots from the release run                                                                              |
+  | Path                                   | Content                                                                                                                 |
+  | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+  | `/`                                    | Landing page with a real screenshot, a short factual description and a download button that detects OS and architecture |
+  | `/download`                            | All packages of the current version with SHA-256, signature and attestation notes                                       |
+  | `/features/*`                          | Workspaces, customization, tabs, privacy, performance with CI measurements, enterprise                                  |
+  | `/docs/*`                              | User, admin and developer documentation with Pagefind search                                                            |
+  | `/api/*`                               | TypeDoc reference                                                                                                       |
+  | `/changelog`                           | Rendered from `CHANGELOG.md`                                                                                            |
+  | `/updates/v1/*`                        | Signed update feed, no HTML                                                                                             |
+  | `/apt`, `/rpm`                         | Linux package repositories                                                                                              |
+  | `/media/screenshots/{version,latest}/` | Screenshots from the release run                                                                                        |
 
 - **No dead links:** `/download` is generated from release data and does not exist until the first release. The download button uses `navigator.userAgentData.getHighEntropyValues` with a user agent string fallback and links to every other format. Pages about features that are not released yet carry "Available from vX.Y" and join the navigation only after that release.
 - **Checks on every pull request:** strict TypeDoc, Markdown lint, a Mermaid render check, a link check with lychee and the Astro build ([ADR 0022](0022-test-strategy.md)).
