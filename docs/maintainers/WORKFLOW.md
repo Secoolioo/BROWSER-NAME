@@ -17,7 +17,7 @@ Astela is maintained by a team of three. The repository owner administers settin
 
 ## Pull requests
 
-- **Owner branches:** pushing a branch with one of the prefixes above runs the `Branch push` workflow. When it passes, `Open pull request` opens the pull request from the first commit message. `Merge pull request` squash-merges it with the owner token once every required check is green.
+- **Owner branches:** pushing a branch with one of the prefixes above runs the `Branch push` workflow. When it passes, `Open pull request` opens the pull request from the first commit message and enables squash auto-merge. It merges once every required check is green.
 - **Other maintainers** open pull requests themselves; the owner reviews them.
 - **Required checks:** `ci-gate` (all CI jobs) and `pr-title`. Review conversations must be resolved. Only green pull requests are merged.
 - **Size:** keep pull requests small, roughly 400 changed lines of hand-written code. Generated files and lockfiles do not count.
@@ -47,14 +47,14 @@ pnpm verify    # every check CI runs in the verify job
 
 ## Automation status
 
-| Workflow                                      | Purpose                                                                                         | Status                            |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------- |
-| `ci.yml`                                      | `verify`, commit rules, workflow security, `ci-gate`                                            | active                            |
-| `pr-title.yml`                                | pull request title lint                                                                         | active                            |
-| `branch-push.yml`, `auto-pr.yml`, `merge.yml` | owner pull requests: opened after the branch check, squash-merged once the required checks pass | active                            |
-| `labels.yml`                                  | label sync from `.github/labels.yml`                                                            | active                            |
-| `codeql.yml`, `scorecard.yml`                 | code scanning and OpenSSF Scorecard                                                             | active                            |
-| `release.yml`, `pages.yml`                    | packages, release, website, update feeds, package repositories                                  | arrives with the release pipeline |
+| Workflow                         | Purpose                                                        | Status                            |
+| -------------------------------- | -------------------------------------------------------------- | --------------------------------- |
+| `ci.yml`                         | `verify`, commit rules, workflow security, `ci-gate`           | active                            |
+| `pr-title.yml`                   | pull request title lint                                        | active                            |
+| `branch-push.yml`, `auto-pr.yml` | owner pull requests with auto-merge                            | active                            |
+| `labels.yml`                     | label sync from `.github/labels.yml`                           | active                            |
+| `codeql.yml`, `scorecard.yml`    | code scanning and OpenSSF Scorecard                            | active                            |
+| `release.yml`, `pages.yml`       | packages, release, website, update feeds, package repositories | arrives with the release pipeline |
 
 ## Releases
 
