@@ -4,6 +4,14 @@ import en from './en.json' with { type: 'json' };
 /** A message key; the English catalog defines the set of keys. */
 export type MessageKey = keyof typeof en;
 
+/**
+ * Tells whether a string is a known message key.
+ * @param key - Any string, for example from a `data-i18n` attribute.
+ */
+export function isMessageKey(key: string | undefined): key is MessageKey {
+  return key !== undefined && Object.hasOwn(en, key);
+}
+
 /** A message catalog of one language. */
 export type Catalog = Readonly<Record<MessageKey, string>>;
 
@@ -39,8 +47,10 @@ export class Translator {
   /**
    * Returns the message for a key.
    * @param key - The message key.
+   * @param params - Values for `{name}` placeholders.
    */
-  t(key: MessageKey): string {
-    return this.catalog[key] || en[key];
+  t(key: MessageKey, params: Readonly<Record<string, string>> = {}): string {
+    const message = this.catalog[key] || en[key];
+    return message.replace(/\{(\w+)\}/g, (match, name: string) => params[name] ?? match);
   }
 }

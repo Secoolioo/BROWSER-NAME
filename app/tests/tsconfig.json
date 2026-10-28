@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../.tsbuild/tests",
+    "lib": ["es2024", "dom"],
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"],
+  "references": [
+    {
+      "path": "../src/shared"
+    },
+    {
+      "path": "../src/ui"
+    }
+  ]
+}

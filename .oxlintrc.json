@@ -37,6 +37,12 @@
       "rules": {
         "typescript/no-unsafe-type-assertion": "off"
       }
+    },
+    {
+      "files": ["app/src/**/__tests__/**", "app/tests/**", "tools/**"],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
+      }
     }
   ],
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.tsbuild/**", "spikes/**"]

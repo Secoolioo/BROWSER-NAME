@@ -1,6 +1,6 @@
 # Test strategy
 
-> **Status:** approved design, not yet implemented. This page describes how Astela is designed to be tested and will be updated as the test suites land.
+> **Status:** partly implemented. Unit, end-to-end and package smoke tests run in CI. See [implementation status](#implementation-status).
 
 Every change ships with tests at the right level. The strategy is designed so that a green `ci-gate` means the packaged app installs, starts, stays within its performance budgets and keeps its security guarantees on Windows, macOS and Linux, and that it updates through NSIS on Windows and AppImage on Linux; release runs add the updater tests for every package format. The decision record is ADR 0022 (test strategy); see the [decision record index](../adr/README.md). Every M1 acceptance criterion is an automated test unless marked otherwise; the M1 scope is described in the [roadmap](../roadmap.md).
 
@@ -38,3 +38,14 @@ A few checks need people. Maintainers perform them once per minor release, not p
 - **Zero retries.** Playwright runs with 0 retries in CI. A flaky test is fixed immediately and takes priority over other work. The one automatic rerun that the performance harness allows before a budget check fails is part of its measurement method, not a test retry (see [performance.md](performance.md)).
 - **Own fixtures.** Tests use their own test pages, served locally: deterministic and free of third-party brands.
 - **Golden profiles from the release preparation step.** The golden profiles for migration tests will be created by `pnpm release:prepare` in the release pull request that a maintainer authors, not by a workflow (see [data.md](data.md)).
+
+## Implementation status
+
+Running in CI on every pull request today:
+
+- **Unit:** Vitest on Ubuntu, Windows and macOS with the coverage gates above.
+- **End-to-end:** Playwright against the packaged `--dir` test build on the three runners. The harness starts the browser itself, waits for the self-test report that the shell has rendered, and then connects: over the DevTools protocol to the pages and through the Node.js inspector to the main process. Connecting only after the shell is ready avoids a race in `_electron.launch`, which can miss the commit of an internal page that loads before it has attached. It covers start-up and the Content Security Policy of the shell, navigation and history, keyboard shortcuts, the isolation of web content from internal pages and APIs, default-denied permissions, and new windows opened as tabs.
+- **Package smoke:** NSIS and MSI (Windows x64), NSIS (Windows arm64), dmg (macOS arm64 and x64), AppImage and deb (Linux x64 and arm64) and rpm (Fedora container). Each package is installed silently, its fuses are read, the self-test runs, and NSIS, MSI and deb are uninstalled again. On a host that restricts user namespaces, the AppImage without its AppArmor profile must open the sandbox help page; with the profile, it must run sandboxed.
+- **Security:** zizmor and actionlint check the workflows.
+
+Not implemented yet: integration tests against real policy sources, component and accessibility tests, the updater tests, the performance harness, smoke tests on further distributions, the documentation checks and the i18n check.
