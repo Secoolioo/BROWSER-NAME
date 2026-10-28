@@ -65,6 +65,8 @@ const blankUrl = 'about:blank';
  * @param layout - Where the bundled files are.
  */
 export async function bootstrap(layout: BundleLayout): Promise<void> {
+  // Milliseconds since process start at each step, for the self-test report.
+  const marks: Record<string, number> = { main: Math.round(performance.now()) };
   registerAppScheme();
   app.setName(brand.productName);
   app.userAgentFallback = cleanUserAgent(app.userAgentFallback);
@@ -94,6 +96,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     new JsonFilePolicyCache(join(userData, 'policy-cache.json')),
   );
   policies.refresh();
+  marks['policies'] = Math.round(performance.now());
 
   if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -102,6 +105,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(macMenu()) : null);
 
   await app.whenReady();
+  marks['ready'] = Math.round(performance.now());
   const lifecycle = new Lifecycle(logger, clock, {});
   const protocolHandler = new AppProtocol(layout.rendererDir, new Set(['shell', 'sandbox-help']));
   const internal = session.fromPartition(internalPartition);
@@ -145,7 +149,13 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     clock,
   );
   const settings = new SettingsService(coreSettings, policies, store, logger);
-  await settings.load();
+  // The first window does not need user settings to appear, so they load alongside it.
+  const settingsLoaded = settings
+    .load()
+    .catch((error: unknown) => logger.error('Settings could not be loaded; defaults apply', error))
+    .then(() => {
+      marks['settings'] = Math.round(performance.now());
+    });
 
   const windows = new WindowManager({
     shellUrl: layout.devShellUrl ?? 'app://shell/',
@@ -165,13 +175,17 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     openInTab: (url, opener) => windows.forTab(opener)?.tabs.open(url),
     logger,
   });
-  registerShellHandlers(router, windows, settings);
+  registerShellHandlers(router, windows, settings, settingsLoaded);
 
   const first = windows.open();
+  marks['window'] = Math.round(performance.now());
   lifecycle.advance('ready');
   const smokeReport = app.commandLine.getSwitchValue('smoke-test');
   if (smokeReport !== '') {
-    runSmokeTest(first, smokeReport, app.commandLine.hasSwitch('smoke-test-keep-running'));
+    runSmokeTest(first, smokeReport, {
+      keepRunning: app.commandLine.hasSwitch('smoke-test-keep-running'),
+      marks,
+    });
   }
   logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });
 
@@ -213,6 +227,7 @@ function registerShellHandlers(
   router: IpcRouter,
   windows: WindowManager,
   settings: SettingsService,
+  settingsLoaded: Promise<void>,
 ): void {
   const windowOf = (sender: Electron.WebContents): BrowserWindowController => {
     const window = windows.forShell(sender);
@@ -221,12 +236,15 @@ function registerShellHandlers(
     }
     return window;
   };
-  const target = (input: string): string | undefined =>
-    resolveOmniboxInput(input, settings.get(SearchUrlTemplate))?.url;
+  const target = async (input: string): Promise<string | undefined> => {
+    await settingsLoaded;
+    return resolveOmniboxInput(input, settings.get(SearchUrlTemplate))?.url;
+  };
   router.handle(GetShellState, (_request, { sender }) => windowOf(sender).state());
-  router.handle(OpenTab, ({ input }, { sender }) => ({
-    tabId: windowOf(sender).tabs.open(input === undefined ? undefined : target(input)),
-  }));
+  router.handle(OpenTab, async ({ input }, { sender }) => {
+    const url = input === undefined ? undefined : await target(input);
+    return { tabId: windowOf(sender).tabs.open(url) };
+  });
   router.handle(
     ActivateTab,
     ({ tabId }, { sender }) => (windowOf(sender).tabs.activate(tabId), null),
@@ -236,8 +254,8 @@ function registerShellHandlers(
     ReopenClosedTab,
     (_request, { sender }) => (windowOf(sender).tabs.reopenClosed(), null),
   );
-  router.handle(NavigateTab, ({ tabId, input }, { sender }) => {
-    const url = target(input);
+  router.handle(NavigateTab, async ({ tabId, input }, { sender }) => {
+    const url = await target(input);
     if (url !== undefined) windowOf(sender).tabs.navigate(tabId, url);
     return null;
   });

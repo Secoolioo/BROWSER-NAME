@@ -10,7 +10,11 @@ import {
   shellRequests,
 } from '../../shared/ipc/shell-contracts.ts';
 import { ManualClock } from '../../kernel/time/clock.ts';
-import { resolveAppRoute, appContentSecurityPolicy } from '../electron/app-protocol-routes.ts';
+import {
+  appContentSecurityPolicy,
+  appResponseHeaders,
+  appSourceRoutes,
+} from '../electron/app-protocol-routes.ts';
 import { commandForInput } from '../electron/shortcuts.ts';
 import { IpcGate, originOf } from '../electron/ipc-gate.ts';
 import { cleanUserAgent } from '../electron/session-security.ts';
@@ -109,58 +113,19 @@ describe('contracts', () => {
   });
 });
 
-describe('resolveAppRoute', () => {
-  const root = '/r';
-  const hosts = new Set(['shell', 'settings']);
-  it('maps hosts to their folder and shares the assets folder', () => {
-    expect(resolveAppRoute('GET', 'app://shell/', root, hosts)).toEqual({
-      kind: 'file',
-      path: join(root, 'shell', 'index.html'),
-      contentType: 'text/html; charset=utf-8',
-    });
-    expect(resolveAppRoute('GET', 'app://SHELL/assets/a-1.js?v=1', root, hosts)).toEqual({
-      kind: 'file',
-      path: join(root, 'assets', 'a-1.js'),
-      contentType: 'text/javascript; charset=utf-8',
-    });
-    expect(resolveAppRoute('HEAD', 'app://settings/sub/', root, hosts)).toMatchObject({
-      path: join(root, 'settings', 'sub', 'index.html'),
-    });
-  });
-
-  it('refuses unknown hosts, other methods, traversal, hidden files and unknown types', () => {
-    expect(resolveAppRoute('GET', 'app://other/', root, hosts)).toEqual({
-      kind: 'error',
-      status: 404,
-    });
-    expect(resolveAppRoute('POST', 'app://shell/', root, hosts)).toEqual({
-      kind: 'error',
-      status: 405,
-    });
-    expect(resolveAppRoute('GET', 'app://shell/..%2f..%2fetc%2fpasswd', root, hosts)).toEqual({
-      kind: 'error',
-      status: 403,
-    });
-    expect(resolveAppRoute('GET', 'app://shell/assets/..%2f..%2fx.js', root, hosts)).toEqual({
-      kind: 'error',
-      status: 403,
-    });
-    expect(resolveAppRoute('GET', 'app://shell/.secret.json', root, hosts)).toEqual({
-      kind: 'error',
-      status: 403,
-    });
-    expect(resolveAppRoute('GET', 'app://shell/%zz', root, hosts)).toEqual({
-      kind: 'error',
-      status: 404,
-    });
-    expect(resolveAppRoute('GET', 'app://shell/a.exe', root, hosts)).toEqual({
-      kind: 'error',
-      status: 404,
-    });
-    expect(resolveAppRoute('GET', 'app://shell/a%00.js', root, hosts)).toEqual({
-      kind: 'error',
-      status: 403,
-    });
+describe('appSourceRoutes', () => {
+  it('serves each host from its folder and the shared assets folder, with the headers', () => {
+    const routes = appSourceRoutes(join('/r'), ['shell', 'settings']);
+    expect(routes.map((r) => [r.match.host, r.match.path ?? '/', r.source.root])).toEqual([
+      ['shell', '/assets/', join('/r', 'assets')],
+      ['shell', '/', join('/r', 'shell')],
+      ['settings', '/assets/', join('/r', 'assets')],
+      ['settings', '/', join('/r', 'settings')],
+    ]);
+    expect(routes.every((r) => r.source.type === 'directory')).toBe(true);
+    expect(routes[0]?.source.index).toBe('');
+    expect(routes[1]?.source.headers).toEqual(appResponseHeaders);
+    expect(appResponseHeaders['x-content-type-options']).toBe('nosniff');
   });
 
   it('serves pages with a strict content security policy', () => {

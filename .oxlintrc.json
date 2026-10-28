@@ -43,6 +43,12 @@
       "rules": {
         "typescript/no-unsafe-type-assertion": "off"
       }
+    },
+    {
+      "files": ["tools/**/*.test.ts"],
+      "rules": {
+        "typescript/no-floating-promises": "off"
+      }
     }
   ],
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.tsbuild/**", "spikes/**"]
