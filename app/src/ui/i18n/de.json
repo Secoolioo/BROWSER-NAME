@@ -1,0 +1,14 @@
+{
+  "shell.tabs": "Tabs",
+  "shell.newTab": "Neuer Tab",
+  "shell.closeTab": "Tab schließen",
+  "shell.untitled": "Neuer Tab",
+  "shell.loading": "Wird geladen",
+  "shell.back": "Zurück",
+  "shell.forward": "Vorwärts",
+  "shell.reload": "Neu laden",
+  "shell.stop": "Laden abbrechen",
+  "shell.address": "Adress- und Suchleiste",
+  "shell.addressPlaceholder": "Suchen oder Adresse eingeben",
+  "shell.toolbar": "Navigation"
+}

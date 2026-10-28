@@ -1,6 +1,6 @@
 # Security and privacy
 
-> **Status:** approved design. Nothing described here is implemented or released yet. Structure and decisions are written in the present tense; runtime behavior is described as what the system will do.
+> **Status:** partly implemented. The Electron hardening baseline exists; the rest of this page is design. See [implementation status](#implementation-status).
 
 Security and privacy are two of Astela's core [principles](principles.md): the Chromium sandbox, process isolation, validated IPC, signed updates and fixed response times for security fixes, with no telemetry and local data. This document covers the hardening of the Electron embedding, network security, the supply chain, response times, documented limits and privacy. To report a vulnerability, follow [SECURITY.md](../../SECURITY.md).
 
@@ -189,3 +189,18 @@ GitHub and GitHub Pages see the IP address during update checks. The privacy sta
 | Encrypted password vault                                  | M3        |
 
 The [roadmap](../roadmap.md) lists the milestones.
+
+## Implementation status
+
+The security baseline is implemented in `app/src/platform/electron/` and checked by end-to-end tests:
+
+- Every view runs sandboxed with context isolation and without Node integration; tabs have no preload.
+- Every session denies permission requests, permission checks, device access and screen capture by default.
+- `<webview>` is never attached; pages cannot open free windows, and their requests become tabs.
+- The shell and internal pages cannot leave their `app://` origin; web content can neither navigate to `app://` nor load it, because web sessions answer such requests with 403.
+- All `app://` pages carry the strict Content Security Policy with Trusted Types.
+- Client certificates are never selected automatically.
+- The user agent carries neither the app nor the Electron token.
+- Spellchecking is off on Windows and Linux.
+
+Not implemented yet: the permission prompt and site list, the certificate error page, HTTPS-First, DNS over HTTPS, the malware and phishing lists, and the web platform API inventory in CI.

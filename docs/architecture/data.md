@@ -1,6 +1,6 @@
 # Data storage and migrations
 
-> **Status:** approved design, not yet implemented. This page describes how user data is designed to be stored and migrated and will be updated as the implementation lands.
+> **Status:** partly implemented. Settings and logs are stored as described; the rest of this page is design. See [implementation status](#implementation-status).
 
 Astela keeps all user data local, in a small number of well-defined stores. Updates must never destroy data: every store has its own schema version, every migration is preceded by a snapshot, and an older app version never writes data it does not understand. The decision record is ADR 0009 (storage with node:sqlite); see the [decision record index](../adr/README.md).
 
@@ -87,3 +87,13 @@ Because the storage engine is hard to change later, `node:sqlite` was validated 
   - if FTS5 is not available, full-text search uses FTS4.
 
 Because all database access goes through the `IDatabase` port, either fallback is designed to stay a change inside the database adapter.
+
+## Implementation status
+
+Implemented in `app/src/platform/node/`:
+
+- **Settings:** `settings.json` with `$schemaVersion` 1, written atomically (temporary file, flush, rename) and debounced, flushed on quit. Invalid values go to `settings.rejected.json`; a file that cannot be parsed is moved aside instead of overwritten.
+- **Logs:** JSON Lines in `logs/`, rotating at 5 MB × 3 files.
+- **Web data:** the `persist:default` partition; cookies and storage are flushed on quit.
+
+Not implemented yet: the session store, the data-service process with `profile.db`, migrations with snapshots, golden-profile tests, themes on disk and the password vault.
