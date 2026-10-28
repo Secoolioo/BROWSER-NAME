@@ -5,7 +5,7 @@
  * Usage: `node tools/package/smoke.ts <format> <package-file-or-directory>`
  * Formats: `nsis`, `msi`, `dmg`, `appimage`, `appimage-no-sandbox`, `deb`, `dir`.
  */
-import { spawn, spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess, type SpawnSyncReturns } from 'node:child_process';
 import {
   existsSync,
   lstatSync,
@@ -16,7 +16,7 @@ import {
   statSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 /** Product identifiers, read from brand.json. */
 interface Brand {
@@ -100,7 +100,34 @@ function find(dir: string, match: (name: string, path: string) => boolean): stri
 }
 
 /**
- * Starts the browser in self-test mode and returns its report.
+ * Stops the browser and every process it started. Helper processes can outlive the browser,
+ * and a browser that hangs must not block the uninstaller or the CI step.
+ * @param child - The browser process.
+ * @param executable - Its program file.
+ */
+function stopBrowser(child: ChildProcess, executable: string): void {
+  if (process.platform === 'win32') {
+    // Helpers whose browser has exited no longer belong to its process tree, so they are
+    // matched by program name.
+    spawnSync('taskkill', ['/F', '/T', '/IM', basename(executable)], {
+      stdio: 'ignore',
+      timeout: 60_000,
+    });
+    return;
+  }
+  if (child.pid === undefined) return;
+  try {
+    // The browser leads its own process group; this stops the group.
+    process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    // The group has already ended.
+  }
+}
+
+/**
+ * Starts the browser in self-test mode and returns its report. Its output is forwarded
+ * through pipes instead of being inherited: a helper process that outlives the browser
+ * would otherwise keep the output of the CI step open, and the step would never end.
  * @param executable - Program to start.
  * @param args - Extra arguments.
  */
@@ -108,17 +135,22 @@ async function selfTest(executable: string, args: readonly string[] = []): Promi
   const dir = mkdtempSync(join(tmpdir(), 'smoke-'));
   const reportPath = join(dir, 'report.json');
   console.log(`$ ${executable} ${[...args, `--smoke-test=${reportPath}`].join(' ')}`);
-  const child = spawn(executable, [...args, `--smoke-test=${reportPath}`], { stdio: 'inherit' });
+  const child = spawn(executable, [...args, `--smoke-test=${reportPath}`], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
+  });
+  child.stdout.on('data', (chunk: Buffer) => process.stdout.write(chunk));
+  child.stderr.on('data', (chunk: Buffer) => process.stderr.write(chunk));
   const code = await new Promise<number | null>((done) => {
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-      done(null);
-    }, 120_000);
+    const timer = setTimeout(() => done(null), 120_000);
     child.on('exit', (exitCode) => {
       clearTimeout(timer);
       done(exitCode);
     });
   });
+  stopBrowser(child, executable);
+  child.stdout.destroy();
+  child.stderr.destroy();
   if (code === null) {
     throw new Error('The browser did not finish its self-test within 120 seconds');
   }
