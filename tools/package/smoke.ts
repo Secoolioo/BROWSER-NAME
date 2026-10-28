@@ -53,13 +53,22 @@ const expectedFuses: Readonly<Record<string, 'Enabled' | 'Disabled'>> = {
 };
 
 /**
- * Runs a command and fails on a non-zero exit code.
+ * Runs a command and fails on a non-zero exit code. An installer that hangs fails after
+ * five minutes instead of blocking the job until its own timeout.
  * @param command - Program.
  * @param args - Arguments.
  */
 function run(command: string, args: readonly string[]): SpawnSyncReturns<string> {
   console.log(`$ ${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const result = spawnSync(command, args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 5 * 60_000,
+    killSignal: 'SIGKILL',
+  });
+  if (result.error !== undefined) {
+    throw new Error(`${command} did not finish: ${result.error.message}`, { cause: result.error });
+  }
   if (result.status !== 0) {
     throw new Error(
       `${command} failed with ${String(result.status)}: ${result.stderr}${result.stdout}`,
@@ -203,7 +212,15 @@ async function main(): Promise<void> {
     }
     case 'msi': {
       const log = join(tmpdir(), 'msi-install.log');
-      run('msiexec', ['/i', pkg, '/qn', '/norestart', '/l*v', log]);
+      try {
+        run('msiexec', ['/i', pkg, '/qn', '/norestart', '/l*v', log]);
+      } catch (error) {
+        // Windows Installer writes its log as UTF-16; the end names the failing action.
+        if (existsSync(log)) {
+          console.log(readFileSync(log, 'utf16le').split(/\r?\n/).slice(-60).join('\n'));
+        }
+        throw error;
+      }
       const exe = join(
         process.env['ProgramFiles'] ?? 'C:\\Program Files',
         brand.productName,
