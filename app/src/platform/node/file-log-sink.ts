@@ -30,7 +30,6 @@ export class RotatingFileLogSink implements LogSink {
     this.file = this.pathOf(0);
   }
 
-  /** {@inheritDoc LogSink.write} */
   write(record: LogRecord): void {
     const line = `${JSON.stringify(record)}\n`;
     try {

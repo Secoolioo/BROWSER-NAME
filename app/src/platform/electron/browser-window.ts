@@ -134,7 +134,6 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     return [...this.views.values()].some((view) => view.webContents === contents);
   }
 
-  /** {@inheritDoc TabViewPort.create} */
   create(id: TabId, url: string): void {
     const view = new WebContentsView({
       webPreferences: {
@@ -168,7 +167,6 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     this.loadInto(contents, url);
   }
 
-  /** {@inheritDoc TabViewPort.show} */
   show(id: TabId): void {
     const view = this.views.get(id);
     if (view === undefined || view === this.visible) {
@@ -185,7 +183,6 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     }
   }
 
-  /** {@inheritDoc TabViewPort.destroy} */
   destroy(id: TabId): void {
     const view = this.views.get(id);
     if (view === undefined) {
@@ -202,7 +199,6 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     view.webContents.close();
   }
 
-  /** {@inheritDoc TabViewPort.load} */
   load(id: TabId, url: string): void {
     const view = this.views.get(id);
     if (view !== undefined) {
@@ -211,7 +207,6 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     }
   }
 
-  /** {@inheritDoc TabViewPort.run} */
   run(id: TabId, action: 'back' | 'forward' | 'reload' | 'stop'): void {
     const contents = this.views.get(id)?.webContents;
     const history = contents?.navigationHistory;

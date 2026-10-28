@@ -75,6 +75,7 @@ export interface UpdateServiceOptions {
   readonly hasKeys: boolean;
   /** Minutes between automatic checks. */
   readonly periodMinutes: number;
+  /** Whether the system reports a network connection. */
   readonly isOnline: () => boolean;
   /** Random number in [0, 1) for the jitter; replaceable in tests. */
   readonly random?: () => number;

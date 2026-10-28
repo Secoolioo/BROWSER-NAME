@@ -1,6 +1,7 @@
 packages:
   - app
   - tools
+  - website
 
 # Only these dependencies may run install scripts. Squirrel.Windows is not used, so the
 # installer of electron-winstaller stays blocked.

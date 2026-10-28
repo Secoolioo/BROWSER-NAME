@@ -11,7 +11,6 @@ export class JsonBootStateStore implements BootStateStore {
     this.path = path;
   }
 
-  /** {@inheritDoc BootStateStore.read} */
   read(): BootState {
     try {
       const value: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
@@ -21,7 +20,6 @@ export class JsonBootStateStore implements BootStateStore {
     }
   }
 
-  /** {@inheritDoc BootStateStore.write} */
   write(state: BootState): void {
     writeFileAtomicSync(this.path, `${JSON.stringify(state)}\n`);
   }

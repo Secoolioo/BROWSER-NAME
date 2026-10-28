@@ -1,0 +1,25 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["../app/src"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "./tsconfig.typedoc.json",
+  "exclude": ["**/__tests__/**"],
+  "excludePrivate": true,
+  "validation": {
+    "notExported": false,
+    "notDocumented": true,
+    "invalidLink": true
+  },
+  "treatWarningsAsErrors": true,
+  "requiredToBeDocumented": [
+    "Enum",
+    "Variable",
+    "Function",
+    "Class",
+    "Interface",
+    "Method",
+    "Accessor",
+    "TypeAlias"
+  ],
+  "excludeExternals": true
+}

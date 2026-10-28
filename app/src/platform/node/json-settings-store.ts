@@ -45,7 +45,6 @@ export class JsonFileSettingsStore implements SettingsStore, Disposable {
     this.debounceMs = debounceMs;
   }
 
-  /** {@inheritDoc SettingsStore.load} */
   async load(): Promise<StoredSettings> {
     let text: string;
     try {
@@ -75,7 +74,6 @@ export class JsonFileSettingsStore implements SettingsStore, Disposable {
     }
   }
 
-  /** {@inheritDoc SettingsStore.save} */
   save(settings: StoredSettings, rejected: readonly RejectedSetting[]): Promise<void> {
     this.pending = { settings, rejected };
     this.timer?.dispose();

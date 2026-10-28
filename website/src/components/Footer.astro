@@ -1,0 +1,26 @@
+---
+// Starlight's footer, plus the renderer for Mermaid diagrams in the documentation.
+import Default from '@astrojs/starlight/components/Footer.astro';
+---
+
+<Default><slot /></Default>
+
+<script>
+  // Diagrams are written as Mermaid code blocks. They are drawn in the browser, and the
+  // library loads only on pages that have one.
+  const blocks = [...document.querySelectorAll<HTMLElement>('pre[data-language="mermaid"]')];
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('mermaid');
+    const dark = document.documentElement.dataset['theme'] === 'dark';
+    mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'neutral' });
+    for (const [index, block] of blocks.entries()) {
+      const source = block.querySelector('code')?.innerText ?? '';
+      const { svg } = await mermaid.render(`diagram-${index}`, source);
+      const figure = block.closest('.expressive-code') ?? block;
+      const container = document.createElement('div');
+      container.className = 'diagram';
+      container.innerHTML = svg;
+      figure.replaceWith(container);
+    }
+  }
+</script>

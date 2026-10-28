@@ -35,7 +35,11 @@ export interface InjectableClass<
 /** Describes how the container obtains the value for a token. */
 export type Provider<T> =
   | { readonly useValue: T }
-  | { readonly useFactory: (container: Container) => T; readonly lifetime?: Lifetime }
+  | {
+      /** Creates the value; it may resolve other tokens from the container. */
+      readonly useFactory: (container: Container) => T;
+      readonly lifetime?: Lifetime;
+    }
   | { readonly useClass: InjectableClass<T>; readonly lifetime?: Lifetime };
 
 /** Thrown for missing registrations, duplicate registrations and dependency cycles. */

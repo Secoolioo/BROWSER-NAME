@@ -11,7 +11,6 @@ export class JsonFeedStateStore implements FeedStateStore {
     this.path = path;
   }
 
-  /** {@inheritDoc FeedStateStore.readSequence} */
   readSequence(): number {
     try {
       const state: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
@@ -24,7 +23,6 @@ export class JsonFeedStateStore implements FeedStateStore {
     return 0;
   }
 
-  /** {@inheritDoc FeedStateStore.writeSequence} */
   writeSequence(sequence: number): void {
     writeFileAtomicSync(this.path, `${JSON.stringify({ sequence })}\n`);
   }

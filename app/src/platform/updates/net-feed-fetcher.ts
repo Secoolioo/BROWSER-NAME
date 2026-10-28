@@ -13,7 +13,6 @@ export class NetFeedFetcher implements FeedFetcher {
     this.base = base;
   }
 
-  /** {@inheritDoc FeedFetcher.fetch} */
   async fetch(path: string): Promise<string | undefined> {
     const url = new URL(path, this.base);
     const response = await net.fetch(url.href, { cache: 'no-store', redirect: 'follow' });

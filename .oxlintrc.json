@@ -27,7 +27,7 @@
   },
   "overrides": [
     {
-      "files": ["tools/**", "spikes/**", "app/tests/updater/**"],
+      "files": ["tools/**", "spikes/**", "app/tests/updater/**", "website/scripts/**"],
       "rules": {
         "no-console": "off"
       }
@@ -39,7 +39,7 @@
       }
     },
     {
-      "files": ["app/src/**/__tests__/**", "app/tests/**", "tools/**"],
+      "files": ["app/src/**/__tests__/**", "app/tests/**", "tools/**", "website/scripts/**"],
       "rules": {
         "typescript/no-unsafe-type-assertion": "off"
       }
