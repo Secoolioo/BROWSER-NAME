@@ -1,0 +1,45 @@
+main {
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 0 24px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+
+p {
+  color: var(--text-2);
+}
+
+button {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: var(--accent);
+  color: white;
+  font: inherit;
+}
+
+button.secondary {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.hint {
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.error {
+  color: oklch(55% 0.2 25);
+}

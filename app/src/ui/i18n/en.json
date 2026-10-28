@@ -10,5 +10,11 @@
   "shell.stop": "Stop loading",
   "shell.address": "Address and search bar",
   "shell.addressPlaceholder": "Search or enter address",
-  "shell.toolbar": "Navigation"
+  "shell.toolbar": "Navigation",
+  "sandboxHelp.title": "The sandbox is not available",
+  "sandboxHelp.body": "This system blocks a security feature that {product} uses to keep websites isolated from each other and from your computer. {product} does not open websites without it.",
+  "sandboxHelp.fix": "Allow the sandbox for {product}",
+  "sandboxHelp.fixHint": "Needs your administrator password. {product} restarts afterwards.",
+  "sandboxHelp.packages": "Get the deb or rpm package instead",
+  "sandboxHelp.failed": "The sandbox could not be allowed. Please try the deb or rpm package."
 }

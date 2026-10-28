@@ -13,7 +13,6 @@ export default defineConfig({
     build: {
       outDir: 'out/main',
       lib: { entry: 'src/main/index.ts', formats: ['es'] },
-      externalizeDeps: { exclude: ['valibot'] },
     },
   },
   preload: {
@@ -21,7 +20,7 @@ export default defineConfig({
     build: {
       outDir: 'out/preload',
       rollupOptions: {
-        input: { shell: 'src/preload/shell.ts' },
+        input: { shell: 'src/preload/shell.ts', page: 'src/preload/page.ts' },
         output: { format: 'cjs', entryFileNames: '[name].cjs' },
       },
     },
@@ -34,7 +33,12 @@ export default defineConfig({
       outDir: 'out/renderer',
       emptyOutDir: true,
       modulePreload: { polyfill: false },
-      rollupOptions: { input: { shell: resolve(import.meta.dirname, 'src/ui/shell/index.html') } },
+      rollupOptions: {
+        input: {
+          shell: resolve(import.meta.dirname, 'src/ui/shell/index.html'),
+          'sandbox-help': resolve(import.meta.dirname, 'src/ui/sandbox-help/index.html'),
+        },
+      },
     },
   },
 });

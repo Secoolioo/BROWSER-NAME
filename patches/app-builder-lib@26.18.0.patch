@@ -1,0 +1,41 @@
+diff --git a/out/targets/appimage/AppImageTarget.js b/out/targets/appimage/AppImageTarget.js
+index 1c5c47eb98c9dd7d5262b5eb1cbef4949d6059b0..7f06232e38fdf7594c93c713fbab58ff36418857 100644
+--- a/out/targets/appimage/AppImageTarget.js
++++ b/out/targets/appimage/AppImageTarget.js
+@@ -24,7 +24,7 @@ class AppImageTarget extends core_1.Target {
+         this.desktopEntry = new lazy_val_1.Lazy(() => {
+             var _a, _b;
+             const appimageTool = (_a = packager.config.toolsets) === null || _a === void 0 ? void 0 : _a.appimage;
+-            const defaultArgs = appimageTool == null || appimageTool === "0.0.0" ? ["--no-sandbox"] : [];
++            const defaultArgs = [];
+             const args = (_b = this.options.executableArgs) !== null && _b !== void 0 ? _b : defaultArgs;
+             const exec = [exports.APP_RUN_ENTRYPOINT, (0, LinuxTargetHelper_1.buildExecArgs)(args), "%U"].filter(Boolean).join(" ");
+             return helper.computeDesktopEntry(this.options, exec, {
+diff --git a/out/targets/appimage/appImageUtil.js b/out/targets/appimage/appImageUtil.js
+index 401e5f83b8c6a549b7cb54e13e473090a9426c83..8d97152ef02ff2a6df08f82602718cf0a7c62195 100644
+--- a/out/targets/appimage/appImageUtil.js
++++ b/out/targets/appimage/appImageUtil.js
+@@ -210,18 +210,11 @@ for arg in "\${args[@]}" ; do
+   fi
+ done
+ NO_SANDBOX=()
+-# Use 'unshare -Ur true' as a heuristic to detect whether user namespaces are available.
+-# Notes:
+-#   - When running as root, this check will always succeed even if the sandbox configuration
+-#     actually relies on unprivileged user namespaces. In practice, Chrome/Electron usually
+-#     disables or adjusts the sandbox separately when running as root, so this probe is mostly
+-#     a no-op in that scenario.
+-#   - On minimal systems (e.g. Alpine or stripped-down containers) 'unshare' may not exist.
+-#     In that case the shell will return exit code 127 ("command not found"), which will cause
+-#     us to add '--no-sandbox'. This is an intentional fail-safe: we prefer the app to start
+-#     without sandboxing rather than crash on startup.
+-if [ $HAVE_NO_SANDBOX -eq 0 ] && ! unshare -Ur true 2>/dev/null ; then
+-  NO_SANDBOX=(--no-sandbox)
++# The Chromium sandbox is never switched off silently. If unprivileged user namespaces are
++# blocked and no AppArmor profile allows them for this AppImage, the browser starts in its
++# sandbox help mode, which shows only a local page and loads no web content.
++if [ $HAVE_NO_SANDBOX -eq 0 ] && ! unshare -Ur true 2>/dev/null && [ ! -f "/etc/apparmor.d/${config.ExecutableName}-appimage" ] ; then
++  NO_SANDBOX=(--no-sandbox --sandbox-help)
+ fi
+ 
+ atexit()
