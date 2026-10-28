@@ -21,6 +21,7 @@ import {
 import { resolveOmniboxInput } from '../domain/navigation/omnibox.ts';
 import { PolicyService } from '../domain/policy/policy-service.ts';
 import { SettingsService, settingPolicies } from '../domain/settings/settings-service.ts';
+import { updatePolicies } from '../domain/updates/update-policies.ts';
 import { AppProtocol, registerAppScheme } from '../platform/electron/app-protocol.ts';
 import {
   WindowManager,
@@ -41,6 +42,7 @@ import { createPolicyProviders } from '../platform/policy/platform-providers.ts'
 import { SearchUrlTemplate, coreSettings } from './core-settings.ts';
 import { showSandboxHelp } from './sandbox-help.ts';
 import { runSandboxHelpSmokeTest, runSmokeTest } from './smoke-test.ts';
+import type { UpdateService } from '../domain/updates/update-service.ts';
 
 /** Paths of the bundled files, relative to the main bundle. */
 export interface BundleLayout {
@@ -90,7 +92,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
 
   // Policies are read synchronously before ready, because some become Chromium switches.
   const policies = new PolicyService(
-    settingPolicies(coreSettings),
+    [...settingPolicies(coreSettings), ...updatePolicies],
     createPolicyProviders(brand, process.platform),
     logger,
     new JsonFilePolicyCache(join(userData, 'policy-cache.json')),
@@ -189,6 +191,15 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
   }
   logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });
 
+  // Everything that is not needed for the first window loads after it.
+  let updates: UpdateService | undefined;
+  void import('./updates.ts')
+    .then(({ createUpdateService }) => {
+      updates = createUpdateService({ policies, clock, logger, userData });
+      updates.start();
+    })
+    .catch((error: unknown) => logger.error('The update service failed to start', error));
+
   const refreshPolicies = (): void => void policies.refresh();
   app.on('browser-window-focus', refreshPolicies);
   const timer = setInterval(refreshPolicies, 15 * 60 * 1000);
@@ -215,6 +226,8 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     });
     void lifecycle.shutdown('quit').then(() => {
       windows.dispose();
+      updates?.installOnExit();
+      updates?.dispose();
       logger.info('Shutdown complete');
       // Everything is saved and every window is closed at this point.
       app.exit(0);

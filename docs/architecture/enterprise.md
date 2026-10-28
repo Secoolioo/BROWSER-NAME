@@ -198,6 +198,8 @@ Implemented (`app/src/platform/policy/`), with unit tests against recorded regis
 - **macOS:** the machine-wide and the per-user managed preferences of the bundle id under `/Library/Managed Preferences`, converted with `plutil` and read by a small plist parser; all values there are mandatory.
 - **Linux:** `/etc/astela/policies/managed/*.json` and `/etc/astela/policies/recommended/*.json`, merged in alphabetical order; invalid files are reported and skipped.
 
+The update policies (`UpdatePolicy`, `TargetChannel`, `TargetVersionPrefix`, `UpdateURL` and `AutoUpdateCheckPeriodMinutes`) are implemented; see [updates.md](updates.md#implementation-status).
+
 The MSI package (x64, per machine, with the fixed upgrade code) is built for every pull request and installed and removed silently in CI.
 
 Not implemented yet: the MSI properties, the install-type marker, the M1 policy set beyond the first settings, the diagnostics page, generated templates, safe mode and the admin guide.
