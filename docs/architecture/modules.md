@@ -1,6 +1,6 @@
 # Module system
 
-> **Status:** approved design, not yet implemented. This page describes how the code is designed to be organized and will be updated as the implementation lands.
+> **Status:** partly implemented. The kernel exists; feature modules arrive with the features. See [implementation status](#implementation-status).
 
 Astela is designed as a microkernel with feature modules. A small kernel in the browser process provides the shared infrastructure, and every feature, from workspaces to the theme editor, is a module on top of it. A disabled module is never imported, so it costs neither start-up time nor memory. This is how Astela is meant to stay lean as features are added (see [principles.md](principles.md)).
 
@@ -219,3 +219,17 @@ The container offers `register(token, provider, lifetime)`, `resolve(token)`, `c
 | Module | One child container per active module, disposed with it. | The module's own services.                               |
 
 The composition root in `app/src/main/` is designed to register the kernel services and bind the platform adapters to their ports at start-up.
+
+## Implementation status
+
+The kernel is implemented in `app/src/kernel/` and covered by unit tests:
+
+| Part                 | Code                             | What exists                                                                                                                                |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dependency injection | `di/token.ts`, `di/container.ts` | Typed tokens, static `inject` lists, `singleton`, `scoped` and `transient` lifetimes, child containers, cycle detection and disposal.      |
+| Module system        | `modules/`                       | `defineModule`, the module registry, activation from policies, settings and dependencies, and a module host with one child container each. |
+| Events               | `events/`                        | Typed emitters and the event bus.                                                                                                          |
+| Lifecycle            | `lifecycle/`                     | Start-up phases and a shutdown that waits for joined work, with a timeout.                                                                 |
+| Logging and time     | `logging/`, `time/`              | Structured logger with ring-buffer and fan-out sinks; a clock port with a manual clock for tests.                                          |
+
+Not implemented yet: feature modules, lazy UI chunks per module, and the generators that read manifests.

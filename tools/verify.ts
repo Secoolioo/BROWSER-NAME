@@ -34,6 +34,32 @@ const checks: readonly Check[] = [
     command: ['pnpm', 'exec', 'markdownlint-cli2'],
   },
   {
+    name: 'typecheck',
+    title: 'Type check (tsc --build)',
+    command: ['pnpm', 'exec', 'tsc', '--build', 'app'],
+  },
+  {
+    name: 'lint',
+    title: 'Lint (Oxlint, type-aware)',
+    command: ['pnpm', 'exec', 'oxlint', '--type-aware', '--deny-warnings'],
+  },
+  {
+    name: 'architecture',
+    title: 'Architecture rules (dependency-cruiser)',
+    command: [
+      'node',
+      'tools/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs',
+      '--config',
+      '.dependency-cruiser.cjs',
+      'app/src',
+    ],
+  },
+  {
+    name: 'test',
+    title: 'Unit and integration tests with coverage (Vitest)',
+    command: ['pnpm', '--dir', 'app', 'exec', 'vitest', 'run', '--coverage'],
+  },
+  {
     name: 'shell',
     title: 'Shell scripts (ShellCheck)',
     command: ['shellcheck', 'tools/owner/setup.sh'],

@@ -1,0 +1,10 @@
+{
+  "name": "tools",
+  "private": true,
+  "type": "module",
+  "description": "Repository tooling: checks, generators, release and packaging helpers.",
+  "devDependencies": {
+    "dependency-cruiser": "18.7.0",
+    "typescript": "6.0.3"
+  }
+}
