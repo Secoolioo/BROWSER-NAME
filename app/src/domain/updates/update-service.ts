@@ -52,6 +52,21 @@ export interface UpdateEngine {
   install(): void;
 }
 
+/** Work around an installation that keeps a rollback possible. */
+export interface UpdateHooks {
+  /**
+   * Runs after a download while the browser keeps running, such as fetching the package of
+   * the running version. A failure is logged; the update still installs.
+   * @param version - The downloaded version.
+   */
+  afterDownload(version: string): Promise<void>;
+  /**
+   * Runs right before the installation starts, while the browser exits.
+   * @param version - The version being installed.
+   */
+  beforeInstall(version: string): void;
+}
+
 /** Settings of the update service, resolved from policies and the installation. */
 export interface UpdateServiceOptions {
   readonly mode: UpdateMode;
@@ -63,6 +78,8 @@ export interface UpdateServiceOptions {
   readonly isOnline: () => boolean;
   /** Random number in [0, 1) for the jitter; replaceable in tests. */
   readonly random?: () => number;
+  /** Rollback preparation around downloads and installations. */
+  readonly hooks?: UpdateHooks;
 }
 
 const minute = 60_000;
@@ -143,6 +160,7 @@ export class UpdateService implements Disposable {
   installOnExit(): boolean {
     if (this.current.kind !== 'ready') return false;
     this.logger.info('Installing update', { version: this.current.version });
+    this.options.hooks?.beforeInstall(this.current.version);
     this.engine.install();
     return true;
   }
@@ -183,6 +201,11 @@ export class UpdateService implements Disposable {
       await this.engine.download((percent) => {
         this.set({ kind: 'downloading', version, percent: Math.round(percent) });
       });
+      try {
+        await this.options.hooks?.afterDownload(version);
+      } catch (error) {
+        this.logger.warn('The rollback could not be prepared', { message: String(error) });
+      }
       this.logger.info('Update ready; it installs when the browser quits', { version });
       return this.set({ kind: 'ready', version });
     } catch (error) {

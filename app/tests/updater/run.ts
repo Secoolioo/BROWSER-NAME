@@ -4,8 +4,12 @@
  * needs no test switch. Build 1 must first refuse a tampered feed, then download build 2
  * from a valid one and install it when it quits. Afterwards, build 2 must start.
  *
+ * With a broken build 3, which fails to start on purpose, build 2 installs it, build 3
+ * fails twice, and the boot guard must bring build 2 back at the third start.
+ *
  * Usage: node app/tests/updater/run.ts --old <packages 1> --new <packages 2>
  *   --old-version <v1> --new-version <v2> --key <private.pem>
+ *   [--broken <packages 3> --broken-version <v3>]
  */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import {
@@ -20,7 +24,7 @@ import {
   rmSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../../..');
 const brand = JSON.parse(readFileSync(join(root, 'brand.json'), 'utf8')) as {
@@ -28,15 +32,27 @@ const brand = JSON.parse(readFileSync(join(root, 'brand.json'), 'utf8')) as {
   slug: string;
 };
 const args = process.argv.slice(2);
+const optional = (name: string): string | undefined =>
+  args.includes(`--${name}`) ? args[args.indexOf(`--${name}`) + 1] : undefined;
 const option = (name: string): string => {
-  const value = args[args.indexOf(`--${name}`) + 1];
-  if (!args.includes(`--${name}`) || value === undefined) throw new Error(`Missing --${name}`);
+  const value = optional(name);
+  if (value === undefined) throw new Error(`Missing --${name}`);
   return value;
 };
-const oldPackages = resolve(option('old'));
-const newPackages = resolve(option('new'));
-const oldVersion = option('old-version');
-const newVersion = option('new-version');
+
+/** A packaged build and its version. */
+interface Build {
+  readonly dir: string;
+  readonly version: string;
+}
+
+const oldBuild: Build = { dir: resolve(option('old')), version: option('old-version') };
+const newBuild: Build = { dir: resolve(option('new')), version: option('new-version') };
+const brokenDir = optional('broken');
+const brokenBuild: Build | undefined =
+  brokenDir === undefined
+    ? undefined
+    : { dir: resolve(brokenDir), version: option('broken-version') };
 const key = resolve(option('key'));
 const port = 8123;
 const feedUrl = `http://127.0.0.1:${port}/`;
@@ -72,36 +88,36 @@ async function waitFor(
   }
 }
 
-/** Publishes both builds and a signed feed for the new one in a site folder. */
-function buildSite(site: string, tamper: boolean): void {
+/** Publishes all builds and a signed feed that lists the given ones, in a site folder. */
+function buildSite(site: string, listed: readonly Build[], tamper: boolean): void {
   rmSync(site, { recursive: true, force: true });
-  for (const [dir, version] of [
-    [oldPackages, oldVersion],
-    [newPackages, newVersion],
-  ] as const) {
-    const target = join(site, 'download', `v${version}`);
+  for (const build of [oldBuild, newBuild, ...(brokenBuild === undefined ? [] : [brokenBuild])]) {
+    const target = join(site, 'download', `v${build.version}`);
     mkdirSync(target, { recursive: true });
-    for (const name of readdirSync(dir)) {
-      if (/\.(exe|AppImage|blockmap|yml)$/.test(name))
-        copyFileSync(join(dir, name), join(target, name));
+    for (const name of readdirSync(build.dir)) {
+      if (/\.(exe|AppImage|blockmap|yml)$/.test(name)) {
+        copyFileSync(join(build.dir, name), join(target, name));
+      }
     }
   }
-  run(process.execPath, [
-    join(root, 'tools/feed/feed.ts'),
-    'build',
-    '--packages',
-    newPackages,
-    '--version',
-    newVersion,
-    '--channel',
-    'beta',
-    '--key',
-    key,
-    '--out',
-    site,
-    '--download-base',
-    `download/v${newVersion}/`,
-  ]);
+  for (const build of listed) {
+    run(process.execPath, [
+      join(root, 'tools/feed/feed.ts'),
+      'build',
+      '--packages',
+      build.dir,
+      '--version',
+      build.version,
+      '--channel',
+      'beta',
+      '--key',
+      key,
+      '--out',
+      site,
+      '--download-base',
+      `download/v${build.version}/`,
+    ]);
+  }
   if (tamper) appendFileSync(join(site, 'updates/v1/index.json'), ' ');
 }
 
@@ -127,12 +143,12 @@ function setPolicy(): void {
 
 /** Installs build 1 and returns the program to start. */
 async function install(): Promise<string> {
-  const file = readdirSync(oldPackages).find((n) =>
+  const file = readdirSync(oldBuild.dir).find((n) =>
     (windows ? /-setup\.exe$/ : /\.AppImage$/).test(n),
   );
   if (file === undefined) throw new Error('No package of build 1');
   if (windows) {
-    run(join(oldPackages, file), ['/S']);
+    run(join(oldBuild.dir, file), ['/S']);
     const exe = join(
       process.env['LOCALAPPDATA'] ?? '',
       'Programs',
@@ -144,7 +160,7 @@ async function install(): Promise<string> {
   }
   const target = join(homedir(), 'Applications', `${brand.slug}.AppImage`);
   mkdirSync(join(homedir(), 'Applications'), { recursive: true });
-  copyFileSync(join(oldPackages, file), target);
+  copyFileSync(join(oldBuild.dir, file), target);
   chmodSync(target, 0o755);
   return target;
 }
@@ -219,28 +235,66 @@ async function quit(running: Running): Promise<void> {
   ]);
 }
 
+/** Whether an update installer or the rollback installer (`installer-<version>.exe`) runs. */
 function installerRunning(): boolean {
   const list = spawnSync('tasklist', ['/fo', 'csv', '/nh'], { encoding: 'utf8' }).stdout;
-  return list.toLowerCase().includes('-setup.exe');
+  return /-setup\.exe|"installer-/i.test(list);
+}
+
+/** Starts a build until it has downloaded an update, quits it and waits for the install. */
+async function updateOnQuit(program: string, profile: string): Promise<void> {
+  const running = start(program, profile, true, join(profile, '..', `${basename(profile)}.json`));
+  await waitFor(
+    'the downloaded update',
+    300,
+    () => logLines(running.profile).some((l) => l.message.startsWith('Update ready')),
+    running.child,
+  );
+  await quit(running);
+  if (windows) {
+    await sleep(5000);
+    await waitFor('the installer to finish', 180, () => !installerRunning());
+  }
+}
+
+/** Runs the self-test of the installed build and returns its exit code and report. */
+async function selfTest(
+  program: string,
+  profile: string,
+): Promise<{ code: number | null; report?: { ok: boolean; version: string } }> {
+  const reportPath = join(profile, '..', `${basename(profile)}.json`);
+  const running = start(program, profile, false, reportPath);
+  const code = await new Promise<number | null>((done) => running.child.once('exit', done));
+  if (!existsSync(reportPath)) return { code };
+  const report = JSON.parse(readFileSync(reportPath, 'utf8')) as { ok: boolean; version: string };
+  console.log(JSON.stringify(report));
+  return { code, report };
+}
+
+function expectVersion(
+  report: { ok: boolean; version: string } | undefined,
+  version: string,
+): void {
+  if (report?.ok !== true || report.version !== version) {
+    throw new Error(`Expected a working ${version}, found ${report?.version ?? 'nothing'}`);
+  }
 }
 
 async function main(): Promise<void> {
   const work = mkdtempSync(join(tmpdir(), 'updater-'));
   const site = join(work, 'site');
-  buildSite(site, true);
+  buildSite(site, [newBuild], true);
   const server = spawn(
     process.execPath,
     [join(root, 'tools/feed/feed.ts'), 'serve', site, String(port)],
-    {
-      stdio: 'inherit',
-    },
+    { stdio: 'inherit' },
   );
   try {
     setPolicy();
     const program = await install();
 
     console.log('Build 1 must refuse a tampered feed.');
-    const first = start(program, join(work, 'profile-1'), true, join(work, 'report-1.json'));
+    const first = start(program, join(work, 'profile-1'), true, join(work, 'profile-1.json'));
     await waitFor(
       'the refused feed',
       150,
@@ -253,30 +307,37 @@ async function main(): Promise<void> {
     await quit(first);
 
     console.log('Build 1 must download build 2 from a valid feed and install it on quit.');
-    buildSite(site, false);
-    const second = start(program, join(work, 'profile-2'), true, join(work, 'report-2.json'));
-    await waitFor(
-      'the downloaded update',
-      300,
-      () => logLines(second.profile).some((l) => l.message.startsWith('Update ready')),
-      second.child,
-    );
-    await quit(second);
+    buildSite(site, [newBuild], false);
+    await updateOnQuit(program, join(work, 'profile-2'));
+    console.log('Build 2 must start.');
+    expectVersion((await selfTest(program, join(work, 'profile-3'))).report, newBuild.version);
+    console.log(`Update passed: ${oldBuild.version} → ${newBuild.version}`);
+
+    if (brokenBuild === undefined) return;
+    console.log('Build 2 must install the broken build 3.');
+    buildSite(site, [newBuild, brokenBuild], false);
+    await updateOnQuit(program, join(work, 'profile-4'));
+    for (const attempt of [5, 6]) {
+      const { code, report } = await selfTest(program, join(work, `profile-${attempt}`));
+      if (code === 0 || report !== undefined) throw new Error('Build 3 started although broken');
+    }
+    console.log('The third start must restore build 2.');
+    const rollbackStart = await selfTest(program, join(work, 'profile-7'));
     if (windows) {
       await sleep(5000);
-      await waitFor('the installer to finish', 180, () => !installerRunning());
+      await waitFor('the reinstall to finish', 180, () => !installerRunning());
+      expectVersion((await selfTest(program, join(work, 'profile-8'))).report, newBuild.version);
+    } else {
+      // The restored AppImage starts again with the same arguments and writes the report.
+      const reportPath = join(work, 'profile-7.json');
+      await waitFor('the restored build', 120, () => existsSync(reportPath));
+      expectVersion(
+        JSON.parse(readFileSync(reportPath, 'utf8')) as { ok: boolean; version: string },
+        newBuild.version,
+      );
     }
-
-    console.log('Build 2 must start.');
-    const report = join(work, 'report-3.json');
-    const third = start(program, join(work, 'profile-3'), false, report);
-    await new Promise<void>((done) => third.child.once('exit', () => done()));
-    const result = JSON.parse(readFileSync(report, 'utf8')) as { ok: boolean; version: string };
-    console.log(JSON.stringify(result));
-    if (!result.ok || result.version !== newVersion) {
-      throw new Error(`Expected a working ${newVersion}, found ${result.version}`);
-    }
-    console.log(`Update test passed: ${oldVersion} → ${newVersion}`);
+    if (rollbackStart.code !== 0) throw new Error('The rollback start did not exit cleanly');
+    console.log(`Rollback passed: ${brokenBuild.version} → ${newBuild.version}`);
   } finally {
     server.kill();
   }
