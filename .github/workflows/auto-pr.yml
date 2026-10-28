@@ -1,6 +1,7 @@
 # Opens a pull request for a maintainer branch after `Branch push`
-# succeeded and enables squash auto-merge. This workflow always runs in the
-# version stored on main; it never checks out or executes branch code.
+# succeeded; `merge.yml` merges it once its required checks have passed. This
+# workflow always runs in the version stored on main; it never checks out or
+# executes branch code.
 name: Open pull request
 
 on:
@@ -25,13 +26,12 @@ jobs:
     environment: automation
     permissions: {}
     steps:
-      - name: Open the pull request and enable auto-merge
+      - name: Open the pull request
         env:
           GH_TOKEN: ${{ secrets.OWNER_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          AUTHOR_EMAIL: ${{ vars.OWNER_COMMIT_EMAIL }}
         run: |
           set -euo pipefail
           if ! [[ "$BRANCH" =~ ^(feat|fix|perf|refactor|docs|test|build|ci|chore)/[a-z0-9._-]+$ ]]; then
@@ -41,7 +41,7 @@ jobs:
 
           number=$(gh pr list --repo "$REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
           if [[ -n "$number" ]]; then
-            echo "Pull request #$number already exists; auto-merge stays as configured."
+            echo "Pull request #$number already exists."
             exit 0
           fi
 
@@ -51,17 +51,4 @@ jobs:
           title=$(printf '%s\n' "$message" | head -n 1)
           body=$(printf '%s\n' "$message" | tail -n +3)
           url=$(gh pr create --repo "$REPOSITORY" --base main --head "$BRANCH" --title "$title" --body "$body")
-          number=${url##*/}
-          echo "Opened pull request #$number"
-
-          node_id=$(gh api "repos/$REPOSITORY/pulls/$number" --jq '.node_id')
-          # shellcheck disable=SC2016 # GraphQL variables, not shell expansions
-          gh api graphql \
-            -f query='mutation($id: ID!, $oid: GitObjectID!, $headline: String!, $email: String!) {
-              enablePullRequestAutoMerge(input: {
-                pullRequestId: $id, mergeMethod: SQUASH, expectedHeadOid: $oid,
-                commitHeadline: $headline, commitBody: "", authorEmail: $email
-              }) { clientMutationId }
-            }' \
-            -f id="$node_id" -f oid="$HEAD_SHA" -f headline="$title" -f email="$AUTHOR_EMAIL"
-          echo "Auto-merge (squash) enabled for #$number"
+          echo "Opened $url"
