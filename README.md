@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>Lampo</strong><br>
+  <strong>Astela</strong><br>
   A fast, lean and deeply customizable desktop browser for Windows, macOS and Linux.
 </p>
 
@@ -19,4 +19,4 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get starte
 
 ## License
 
-Lampo is licensed under the [Mozilla Public License 2.0](LICENSE).
+Astela is licensed under the [Mozilla Public License 2.0](LICENSE).

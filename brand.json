@@ -1,8 +1,8 @@
 {
-  "productName": "Lampo",
-  "slug": "lampo",
-  "appId": "io.github.secoolioo.lampo",
-  "repository": "Secoolioo/lampo",
-  "website": "https://secoolioo.github.io/lampo/",
+  "productName": "Astela",
+  "slug": "astela",
+  "appId": "io.github.secoolioo.astela",
+  "repository": "Secoolioo/astela",
+  "website": "https://secoolioo.github.io/astela/",
   "tagline": "A fast, lean and deeply customizable desktop browser."
 }

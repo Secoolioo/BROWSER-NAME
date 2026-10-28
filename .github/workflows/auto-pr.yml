@@ -55,6 +55,7 @@ jobs:
           echo "Opened pull request #$number"
 
           node_id=$(gh api "repos/$REPOSITORY/pulls/$number" --jq '.node_id')
+          # shellcheck disable=SC2016 # GraphQL variables, not shell expansions
           gh api graphql \
             -f query='mutation($id: ID!, $oid: GitObjectID!, $headline: String!, $email: String!) {
               enablePullRequestAutoMerge(input: {
