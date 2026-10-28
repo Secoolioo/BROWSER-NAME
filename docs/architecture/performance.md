@@ -1,6 +1,6 @@
 # Performance
 
-> **Status:** approved design. Nothing described here is implemented or released yet. Structure and decisions are written in the present tense; runtime behavior is described as what the system will do.
+> **Status:** partly implemented. The harness checks the start-up, idle memory, idle CPU, bundle and size budgets on every pull request. See [implementation status](#implementation-status).
 
 Performance comes first among Astela's [principles](principles.md). Budgets are measured in CI, and every regression fails the build. The decision record is ADR 0017 (performance budgets in CI); see the [decision record index](../adr/README.md).
 
@@ -27,7 +27,7 @@ These techniques apply from M1:
    - The BootGuard, policies, settings and the window come first; everything else loads through `import()` after the first paint.
    - Nothing awaits large bundles before `ready`.
    - `Menu.setApplicationMenu` is set early.
-2. **Shell UI from the `app://` scheme** with the `codeCache` privilege and `v8CacheOptions: 'bypassHeatCheck'`. `protocol.registerSource` (Electron 45, experimental) will be evaluated as a way to serve files without the main thread.
+2. **Shell UI from the `app://` scheme** with the `codeCache` privilege and `v8CacheOptions: 'bypassHeatCheck'`, served with `protocol.registerSource`, so files stream without the main thread (see ADR 0008).
 3. **Bundles:** main, preload and UI are built with Vite and Rolldown. Module chunks load only when their module is active (see [modules](modules.md)).
 4. **No synchronous IPC.** State patches are batched per frame. SQLite and hashing run in a `utilityProcess` (see [IPC](ipc.md) and [data](data.md)).
 5. **Tab resources:**
@@ -132,3 +132,17 @@ Measurement history is never committed to the repository:
 An A/A run once a week compares identical builds. It measures the runner variance and calibrates the thresholds.
 
 The performance harness is designed to run on every pull request on all three operating systems; on macOS, the limited runners allow only relative values. See [testing](testing.md) for the overall test strategy.
+
+## Implementation status
+
+The harness (`tools/perf/run.ts`) runs in the `perf` job of every pull request on `ubuntu-24.04`, `windows-2025` and `macos-15` and fails the build when a budget is exceeded. It checks:
+
+- **Warm start:** n = 20 after two warm-up rounds, median against the bare reference and the ceiling. A median over the budget fails only when a one-sided Mann-Whitney U test (`tools/perf/stats.ts`) shows that the browser's times are significantly larger than the reference times plus the allowed difference (p < 0.01); the job summary shows the p-value. On the 3-core macOS runners the difference to the reference varied between 73 and 152 ms across identical builds, so a median alone was not a reliable gate. Each variant keeps its profile between runs and quits normally, as in real use. The interactive mark is the self-test report, written once the shell has loaded and rendered; the report also carries the marks `main`, `policies`, `ready`, `window`, `settings`, `shell` and `rendered` in milliseconds since process start, and the job summary shows their medians next to those of the reference.
+- **Memory, idle:** n = 10 after 15 s, median, with the metric per operating system above. On Linux, the harness reads the memory maps of sandboxed processes through `sudo`.
+- **CPU, idle:** one 60-second window per variant, after 15 s.
+- **UI JavaScript, preloads and the main start-up path:** sizes of the built bundles.
+- **Unpacked size:** the unpacked package against the Electron distribution.
+
+The bare reference (`app/tests/perf/bare/`) runs in a copy of the Electron distribution as its app folder, with the fuses of a shipped package except the two asar fuses. Each group of measurements that fails is measured once more before the job fails. Results are kept as the `perf-<os>` workflow artifact.
+
+Not implemented yet: the comparison with the `main` build, the cold start, the tab, workspace and 20-tab budgets, the installer budgets, the first-tab-painted mark, the weekly A/A run and the `perf.json` release asset.
