@@ -14,6 +14,7 @@ export class AppShell extends LitElement {
     editing: { state: true },
   };
 
+  /** Styles of the shell, scoped to its shadow root. */
   static override styles = css`
     :host {
       display: block;

@@ -27,5 +27,7 @@
     "MD041": false,
   },
   "globs": ["**/*.md"],
+  // Generated pages (website build) are not linted.
+  "gitignore": true,
   "ignores": ["**/node_modules/**", "**/dist/**", "CHANGELOG.md"],
 }

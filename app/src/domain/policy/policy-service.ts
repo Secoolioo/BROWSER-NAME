@@ -42,7 +42,12 @@ export interface EffectivePolicy {
 
 /** Stores the last known raw values, used when a provider cannot be read at startup. */
 export interface PolicyCache {
+  /** Returns the cached values, or `undefined` when there is no usable cache. */
   read(): readonly RawPolicyValue[] | undefined;
+  /**
+   * Replaces the cached values.
+   * @param values - The values just read from the providers.
+   */
   write(values: readonly RawPolicyValue[]): void;
 }
 

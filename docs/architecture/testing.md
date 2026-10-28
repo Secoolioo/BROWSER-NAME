@@ -49,6 +49,7 @@ Running in CI on every pull request today:
 - **Updater:** an update from build 1 to build 2 through a local signed feed on Windows (NSIS) and Linux (AppImage), after build 1 refused a tampered feed, and the rollback from a build 3 that fails to start (see [updates.md](updates.md#implementation-status)).
 - **Package repositories:** installation, upgrade order (`~beta` before the release) and removal through the APT and DNF repositories in containers of six distributions.
 - **Performance:** the harness checks the first budgets against the bare reference (see [performance.md](performance.md#implementation-status)).
+- **Documentation:** Markdown lint, the strict TypeDoc check of every doc comment in `app/src`, and the website build, all in `pnpm verify`.
 - **Security:** zizmor and actionlint check the workflows.
 
-Not implemented yet: integration tests against real policy sources, component and accessibility tests, the remaining updater cases (hash mismatch, downgrade and expiry, which unit tests cover so far, and macOS), smoke tests on further distributions, the documentation checks and the i18n check.
+Not implemented yet: integration tests against real policy sources, component and accessibility tests, the remaining updater cases (hash mismatch, downgrade and expiry, which unit tests cover so far, and macOS), smoke tests on further distributions, the Mermaid render check, the link check and the i18n check.
