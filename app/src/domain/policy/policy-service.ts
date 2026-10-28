@@ -193,7 +193,14 @@ export class PolicyService implements Disposable {
         reject('sensitive-requires-machine', 'Only machine-wide mandatory policies may set this');
         continue;
       }
-      const parsed = v.safeParse(definition.schema, item.value);
+      let parsed = v.safeParse(definition.schema, item.value);
+      if (!parsed.success && (item.value === 0 || item.value === 1)) {
+        // The Windows registry stores booleans as DWORD 0 or 1.
+        const asBoolean = v.safeParse(definition.schema, item.value === 1);
+        if (asBoolean.success) {
+          parsed = asBoolean;
+        }
+      }
       if (!parsed.success) {
         reject('invalid', parsed.issues[0].message);
         continue;

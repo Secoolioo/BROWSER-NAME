@@ -1,6 +1,6 @@
 # Enterprise
 
-> **Status:** design. Nothing described here is implemented or released yet. This document describes how Astela is designed to be deployed and managed in organizations, starting with M1 and growing in later milestones.
+> **Status:** partly implemented. Astela reads policies from all three operating systems; the rest of this page is design. See [implementation status](#implementation-status).
 
 Astela is designed to be manageable: every setting can be set and locked by policy, and the browser will ship with an MSI package, silent installation, update control, a diagnostics page and a safe mode. Organizations will get all of this without telemetry and without an account.
 
@@ -189,3 +189,13 @@ The M1 acceptance tests for enterprise features are:
 - The ADMX/ADML templates validate against the XSD automatically. Maintainers check the import into a Microsoft Intune test tenant manually once per minor release.
 - `--safe-mode` starts without optional modules and custom themes.
 - The policy providers are tested against real sources: a test key under `HKCU` on Windows, a plist in `/Library/Managed Preferences` on macOS and JSON files in a temporary folder on Linux.
+
+## Implementation status
+
+Implemented (`app/src/platform/policy/`), with unit tests against recorded registry exports, plists and JSON files:
+
+- **Windows:** `reg export` of `HKLM` and `HKCU\SOFTWARE\Policies\Astela`; values of the `Recommended` subkey are recommended, and a subkey named after a policy holds a list.
+- **macOS:** the machine-wide and the per-user managed preferences of the bundle id under `/Library/Managed Preferences`, converted with `plutil` and read by a small plist parser; all values there are mandatory.
+- **Linux:** `/etc/astela/policies/managed/*.json` and `/etc/astela/policies/recommended/*.json`, merged in alphabetical order; invalid files are reported and skipped.
+
+Not implemented yet: the M1 policy set beyond the first settings, the diagnostics page, generated templates, the MSI properties, safe mode and the admin guide.
