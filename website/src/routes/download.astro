@@ -1,0 +1,162 @@
+---
+// The download page. It exists only when the build has release data (see
+// src/lib/releases.ts), so the website never links to packages that do not exist.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { Code } from '@astrojs/starlight/components';
+import brand from '../../../brand.json';
+import {
+  currentReleases,
+  megabytes,
+  packagesOf,
+  verificationFilesOf,
+  type Release,
+} from '../lib/releases';
+
+const { stable, beta } = currentReleases();
+const shown = [stable, beta].filter((r): r is Release => r !== undefined);
+const site = new URL(brand.website).href;
+const osName = { windows: 'Windows', macos: 'macOS', linux: 'Linux' } as const;
+const date = (iso: string): string => iso.slice(0, 10);
+const channel = stable === undefined ? 'beta' : 'stable';
+
+const apt = `curl -fsSL ${site}linux-repo.asc |
+  sudo tee /usr/share/keyrings/${brand.slug}.asc >/dev/null
+sudo tee /etc/apt/sources.list.d/${brand.slug}.sources >/dev/null <<EOF
+Types: deb
+URIs: ${site}apt
+Suites: ${channel}
+Components: main
+Signed-By: /usr/share/keyrings/${brand.slug}.asc
+EOF
+sudo apt update && sudo apt install ${brand.slug}`;
+const dnf = `sudo tee /etc/yum.repos.d/${brand.slug}.repo >/dev/null <<EOF
+[${brand.slug}]
+name=${brand.productName}
+baseurl=${site}rpm/${channel}
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=${site}linux-repo.asc
+EOF
+sudo dnf install ${brand.slug}`;
+const verify = `sha256sum --check --ignore-missing SHA256SUMS
+curl -fsSL ${site}linux-repo.asc | gpg --import
+gpg --verify SHA256SUMS.asc SHA256SUMS
+gh attestation verify ${brand.slug}-linux-x86_64.AppImage --repo ${brand.repository}`;
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Download',
+    description: `Packages of ${brand.productName} for Windows, macOS and Linux.`,
+    tableOfContents: false,
+  }}
+>
+  {
+    shown.map((release) => (
+      <section id={release.channel}>
+        <h2>
+          {release.channel === 'stable' ? 'Stable' : 'Beta'} {release.version}
+        </h2>
+        <p>
+          Released on {date(release.publishedAt)}. <a href={release.page}>Release notes</a>
+          {release.channel === 'beta' &&
+            ' · Betas receive new features first and are updated more often.'}
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>System</th>
+              <th>Package</th>
+              <th>Size</th>
+              <th>SHA-256</th>
+            </tr>
+          </thead>
+          <tbody>
+            {packagesOf(release).map((p) => (
+              <tr>
+                <td>
+                  {osName[p.os]} {p.arch}
+                </td>
+                <td>
+                  <a href={p.url}>{p.format}</a>
+                  <br />
+                  <small>{p.note}</small>
+                </td>
+                <td>{megabytes(p.size)}</td>
+                <td>
+                  <code class="hash">{p.sha256 ?? 'see SHA256SUMS'}</code>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p>
+          Verification:{' '}
+          {verificationFilesOf(release).map((file, index) => (
+            <>
+              {index > 0 && ' · '}
+              <a href={file.url}>{file.name}</a>
+            </>
+          ))}
+        </p>
+      </section>
+    ))
+  }
+
+  <h2 id="repositories">Package repositories</h2>
+  <p>
+    Installing the deb or rpm package from a file also adds the {brand.productName} repository, so
+    the browser updates together with the system. To add the repository first instead:
+  </p>
+  <h3>Debian and Ubuntu</h3>
+  <Code code={apt} lang="sh" />
+  <h3>Fedora and RHEL</h3>
+  <Code code={dnf} lang="sh" />
+  <p>
+    {
+      channel === 'stable' ? (
+        <>
+          Use <code>beta</code> instead of <code>stable</code> for the beta channel, which also
+          receives every stable release.
+        </>
+      ) : (
+        <>
+          Until the first stable release, packages are published on the beta channel only. It also
+          receives every stable release.
+        </>
+      )
+    }
+  </p>
+
+  <h2 id="verify">Verify a download</h2>
+  <p>
+    <code>SHA256SUMS</code> lists every file of a release. It is signed with the package repository
+    key (<code>SHA256SUMS.asc</code>) and with the update key (<code>SHA256SUMS.sig</code>). Each
+    file also has a build provenance attestation from the release workflow.
+  </p>
+  <Code code={verify} lang="sh" />
+
+  <h2 id="notes">Notes</h2>
+  <ul>
+    <li>
+      Windows and macOS ask for confirmation on the first start until the packages are signed with
+      publicly trusted certificates.
+    </li>
+    <li>The MSI package is meant for managed deployment and is published for stable releases only.</li>
+    <li>
+      The AppImage needs no installation. On Ubuntu 24.04 and later it explains how to enable the
+      browser sandbox on its first start.
+    </li>
+  </ul>
+</StarlightPage>
+
+<style>
+  .hash {
+    display: block;
+    max-width: 16rem;
+    font-size: var(--sl-text-xs);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+</style>
