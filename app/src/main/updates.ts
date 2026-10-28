@@ -13,13 +13,19 @@ import {
   defaultCheckPeriodMinutes,
   updateMode,
 } from '../domain/updates/update-policies.ts';
-import { UpdateService, type UpdateEngine } from '../domain/updates/update-service.ts';
+import {
+  UpdateService,
+  type UpdateEngine,
+  type UpdateHooks,
+} from '../domain/updates/update-service.ts';
 import { parseVersion } from '../domain/updates/version.ts';
 import { Ed25519Verifier } from '../platform/updates/ed25519-verifier.ts';
 import { JsonFeedStateStore } from '../platform/updates/feed-state.ts';
-import { detectInstallType, updateFormat } from '../platform/updates/install-type.ts';
+import { updateFormat } from '../platform/updates/install-type.ts';
+import type { PackageDownloader } from '../platform/updates/rollback.ts';
 import { NetFeedFetcher } from '../platform/updates/net-feed-fetcher.ts';
 import { brand } from '../shared/brand.ts';
+import type { BootCheck } from './boot.ts';
 import { updateKeys } from '../shared/update-keys.ts';
 
 /** What the update service needs from the composition root. */
@@ -28,6 +34,8 @@ export interface UpdateDependencies {
   readonly clock: Clock;
   readonly logger: Logger;
   readonly userData: string;
+  /** The boot guard and rollback of this start. */
+  readonly boot: BootCheck;
 }
 
 /**
@@ -36,14 +44,8 @@ export interface UpdateDependencies {
  * @param deps - Policies, clock, logger and the profile folder.
  */
 export function createUpdateService(deps: UpdateDependencies): UpdateService {
-  const { policies, clock, logger } = deps;
-  const installType = detectInstallType({
-    platform: process.platform,
-    packaged: app.isPackaged,
-    execPath: process.execPath,
-    resourcesPath: process.resourcesPath,
-    env: process.env,
-  });
+  const { policies, clock, logger, boot } = deps;
+  const { installType, guard, rollback } = boot;
   const currentVersion = app.getVersion();
   const isPrerelease = (parseVersion(currentVersion)?.prerelease.length ?? 0) > 0;
   const mirror = policies.mandatoryValue(UpdateURL);
@@ -61,6 +63,7 @@ export function createUpdateService(deps: UpdateDependencies): UpdateService {
     channel: policies.mandatoryValue(TargetChannel) ?? (isPrerelease ? 'beta' : 'stable'),
     currentVersion,
     artifactKey: `${process.platform}-${process.arch}-${updateFormat(installType) ?? 'none'}`,
+    blocked: guard.blockedVersions(),
     ...(versionPrefix === undefined ? {} : { versionPrefix }),
   } as const;
 
@@ -76,6 +79,26 @@ export function createUpdateService(deps: UpdateDependencies): UpdateService {
     install: () => engine?.install(),
   };
 
+  // Streams a package of the feed, such as the installer of the running version.
+  const download: PackageDownloader = async (version) => {
+    const manifest = await feed.manifest(version);
+    const artifact = manifest.artifacts[query.artifactKey];
+    if (artifact === undefined) throw new Error(`No package of ${version} for this platform`);
+    const url = new URL(artifact.file, new URL(manifest.downloadBase, feedBase));
+    const response = await net.fetch(url.href);
+    if (!response.ok || response.body === null) {
+      throw new Error(`${url.href} answered ${response.status}`);
+    }
+    return { sha512: artifact.sha512, chunks: response.body };
+  };
+  const hooks: UpdateHooks = {
+    afterDownload: async () => rollback?.prepare(currentVersion, download),
+    beforeInstall: (version) => {
+      rollback?.keep();
+      guard.prepareUpdate(currentVersion, version);
+    },
+  };
+
   const service = new UpdateService(lazyEngine, clock, logger.child('updates'), {
     mode: updateMode(policies.mandatoryValue(UpdatePolicy)),
     installType,
@@ -83,6 +106,7 @@ export function createUpdateService(deps: UpdateDependencies): UpdateService {
     periodMinutes:
       policies.mandatoryValue(AutoUpdateCheckPeriodMinutes) ?? defaultCheckPeriodMinutes,
     isOnline: () => net.isOnline(),
+    hooks,
   });
   logger.info('Update service', {
     installType,

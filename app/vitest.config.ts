@@ -7,7 +7,11 @@ const brand: unknown = JSON.parse(
 );
 
 export default defineConfig({
-  define: { BUILD_BRAND: JSON.stringify(brand), BUILD_UPDATE_KEYS: '[]' },
+  define: {
+    BUILD_BRAND: JSON.stringify(brand),
+    BUILD_UPDATE_KEYS: '[]',
+    BUILD_TEST_BOOT_FAILURE: 'false',
+  },
   test: {
     include: ['src/**/__tests__/**/*.test.ts'],
     environment: 'node',

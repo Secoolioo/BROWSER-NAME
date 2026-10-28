@@ -18,7 +18,12 @@ const define = { BUILD_BRAND: JSON.stringify(brand) };
 
 export default defineConfig({
   main: {
-    define: { ...define, BUILD_UPDATE_KEYS: JSON.stringify(updateKeys) },
+    define: {
+      ...define,
+      BUILD_UPDATE_KEYS: JSON.stringify(updateKeys),
+      // Only the rollback test builds a version that fails to start on purpose.
+      BUILD_TEST_BOOT_FAILURE: JSON.stringify(process.env['TEST_BOOT_FAILURE'] === '1'),
+    },
     build: {
       outDir: 'out/main',
       lib: { entry: 'src/main/index.ts', formats: ['es'] },
