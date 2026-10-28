@@ -178,6 +178,8 @@ jobs:
           Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - name: Install, start and remove each package
+        # Ends a hang earlier than the job timeout, with the log of the package that hangs.
+        timeout-minutes: 20
         run: |
           for entry in $FORMATS; do
             format="${entry%%:*}"
