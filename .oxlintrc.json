@@ -27,7 +27,7 @@
   },
   "overrides": [
     {
-      "files": ["tools/**", "spikes/**"],
+      "files": ["tools/**", "spikes/**", "app/tests/updater/**"],
       "rules": {
         "no-console": "off"
       }

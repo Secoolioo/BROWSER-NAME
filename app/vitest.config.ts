@@ -7,7 +7,7 @@ const brand: unknown = JSON.parse(
 );
 
 export default defineConfig({
-  define: { BUILD_BRAND: JSON.stringify(brand) },
+  define: { BUILD_BRAND: JSON.stringify(brand), BUILD_UPDATE_KEYS: '[]' },
   test: {
     include: ['src/**/__tests__/**/*.test.ts'],
     environment: 'node',
@@ -25,6 +25,8 @@ export default defineConfig({
         'src/platform/electron/browser-window.ts',
         'src/platform/electron/ipc-router.ts',
         'src/platform/electron/session-security.ts',
+        'src/platform/updates/electron-updater-engine.ts',
+        'src/platform/updates/net-feed-fetcher.ts',
       ],
       reporter: ['text-summary', 'json-summary'],
       thresholds: {
