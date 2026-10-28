@@ -69,6 +69,9 @@ jobs:
         shell: bash
     env:
       BUILDER_ARGS: ${{ matrix.args }}
+      # electron-builder skips all signing in pull requests, also the ad-hoc signature that
+      # macOS needs to start the app. Ad-hoc signing uses no secrets.
+      CSC_FOR_PULL_REQUEST: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
