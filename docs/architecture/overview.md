@@ -409,7 +409,7 @@ Wayland does not let applications position their windows. A torn-off window is t
 
 The first browser window works end to end:
 
-- **Process model:** one `BaseWindow` per window with a shell view (`app://shell`) and one `WebContentsView` per tab, created when the tab first becomes active. Web content and the browser's own pages use separate sessions.
+- **Process model:** one `BaseWindow` per window with a shell view (`app://shell`) and one `WebContentsView` per tab, created when the tab first becomes active. A window appears at once in the background color of the theme and the shell paints into it; a hidden window would load the shell at a lower priority. Web content and the browser's own pages use separate sessions.
 - **Shell:** tab strip on top, back, forward and reload buttons, and an address bar that tells URLs from searches (`app/src/ui/shell/`). Keyboard shortcuts for new, closed and reopened tabs, the address bar and reload work in the shell and in web content.
 - **Composition root:** `app/src/main/bootstrap.ts` wires the first services by hand. It moves onto the dependency injection container and the module host with the first feature module.
 
