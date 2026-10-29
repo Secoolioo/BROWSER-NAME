@@ -142,6 +142,6 @@ How these checks fit into the overall test strategy is described in [Testing](te
 
 ## Implementation status
 
-The first tokens exist in `app/src/ui/ui-kit/tokens.css`: OKLCH colors for light and dark mode, spacing, radii and motion, with motion switched off for `prefers-reduced-motion`. The shell uses them, with inline Lucide-style icons. The application icon, the single-color mark and the wordmark exist in `assets/brand/` and are described in its README. The website applies the same rules to its documentation theme in `website/src/styles/theme.css`.
+The first tokens exist in `app/src/ui/ui-kit/tokens.css`: OKLCH colors for light and dark mode, spacing, radii and motion, with motion switched off for `prefers-reduced-motion`. The shell uses them, with inline Lucide-style icons. The application icon, the single-color mark and the wordmark exist in `assets/brand/` and are described in its README. The website applies the same rules to its documentation theme in `website/src/styles/theme.css`. The default [keyboard shortcuts](../user/keyboard-shortcuts.md) follow the conventions of each operating system; on Windows and Linux, F6 moves the focus to the address bar.
 
-Not implemented yet: `palette.json`, the banner and the social preview image, density levels, font settings, the tab bar positions, layout presets, the built-in themes and the automated contrast, accessibility and screenshot checks.
+Not implemented yet: `palette.json`, the banner and the social preview image, density levels, font settings, the tab bar positions, layout presets, the F6 cycle from the toolbar to the tabs to the content, the built-in themes and the automated contrast, accessibility and screenshot checks.

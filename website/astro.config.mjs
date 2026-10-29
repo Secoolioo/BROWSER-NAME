@@ -52,6 +52,7 @@ export default defineConfig({
         ...(existsSync(new URL('../CHANGELOG.md', import.meta.url))
           ? [{ label: 'Changelog', link: '/changelog/' }]
           : []),
+        { label: 'User guide', items: [{ autogenerate: { directory: 'docs/user' } }] },
         { label: 'Roadmap', link: '/docs/roadmap/' },
         { label: 'Architecture', items: [{ autogenerate: { directory: 'docs/architecture' } }] },
         { label: 'Decision records', items: [{ autogenerate: { directory: 'docs/adr' } }] },

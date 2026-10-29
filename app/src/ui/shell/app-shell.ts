@@ -141,6 +141,7 @@ export class AppShell extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    this.addEventListener('mouseup', this.onMouseUp);
     const bridge = this.bridge;
     if (bridge === undefined) {
       return;
@@ -156,6 +157,7 @@ export class AppShell extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener('mouseup', this.onMouseUp);
     this.resizeObserver?.disconnect();
     for (const unsubscribe of this.unsubscribers.splice(0)) {
       unsubscribe();
@@ -285,6 +287,14 @@ export class AppShell extends LitElement {
       void this.bridge?.invoke('tabs.action', { tabId, action });
     }
   }
+
+  /** The mouse's back and forward buttons act on the active tab, as they do over its page. */
+  private readonly onMouseUp = (event: MouseEvent): void => {
+    if (event.button === 3 || event.button === 4) {
+      event.preventDefault();
+      this.action(event.button === 3 ? 'back' : 'forward');
+    }
+  };
 
   private readonly onAddressKey = (event: KeyboardEvent): void => {
     const input = inputOf(event);

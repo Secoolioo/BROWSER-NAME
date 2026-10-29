@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   FixtureServer,
+  clickHistoryButton,
   launch,
   pressNative,
   shellState,
@@ -9,6 +10,7 @@ import {
 } from './harness.ts';
 
 const server = new FixtureServer();
+const mac = process.platform === 'darwin';
 let browser: Browser;
 
 test.beforeAll(async () => {
@@ -28,6 +30,12 @@ async function navigate(input: string): Promise<void> {
   const address = browser.shell.getByRole('textbox', { name: 'Address and search bar' });
   await address.fill(input);
   await address.press('Enter');
+}
+
+async function activeTab(): Promise<{ index: number; title: string | undefined }> {
+  const state = await shellState(browser.shell);
+  const index = state.tabs.findIndex((tab) => tab.id === state.activeTabId);
+  return { index, title: state.tabs[index]?.title };
 }
 
 test('shows the shell with one tab and an address bar', async () => {
@@ -70,6 +78,53 @@ test('opens, closes and reopens tabs with keyboard shortcuts', async () => {
   await expect
     .poll(async () => (await shellState(browser.shell)).tabs.map((t) => t.url))
     .toContain(`${server.origin}/index.html`);
+});
+
+test('goes back and forward with the shortcuts of each system', async () => {
+  await navigate(`${server.origin}/index.html`);
+  const page = await waitForPage(browser, (url) => url.endsWith('/index.html'));
+  await page.click('#second');
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture second');
+  // Cmd+[ and Cmd+] on macOS, Alt+Left and Alt+Right elsewhere; in the page, then the shell.
+  await pressNative(browser, mac ? '[' : 'Left', [mac ? 'primary' : 'alt'], server.origin);
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture home');
+  await pressNative(browser, mac ? ']' : 'Right', [mac ? 'primary' : 'alt']);
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture second');
+});
+
+test('switches tabs with the shortcuts of each system', async () => {
+  await navigate(`${server.origin}/index.html`);
+  await expect(browser.shell.getByRole('tab', { name: 'Fixture home' })).toBeVisible();
+  await pressNative(browser, 'T', ['primary']);
+  await expect.poll(async () => (await activeTab()).index).toBe(1);
+  await pressNative(browser, 'Tab', ['control', 'shift']);
+  await expect.poll(async () => (await activeTab()).index).toBe(0);
+  // Cmd+Option+Right on macOS, Ctrl+Page Down elsewhere, pressed in the page.
+  if (mac) await pressNative(browser, 'Right', ['primary', 'alt'], server.origin);
+  else await pressNative(browser, 'PageDown', ['control'], server.origin);
+  await expect.poll(async () => (await activeTab()).index).toBe(1);
+  // Cmd+Shift+[ on macOS, Ctrl+Page Up elsewhere.
+  if (mac) await pressNative(browser, '[', ['primary', 'shift']);
+  else await pressNative(browser, 'PageUp', ['control']);
+  await expect.poll(async () => (await activeTab()).index).toBe(0);
+  await pressNative(browser, 'Tab', ['control']);
+  await expect.poll(async () => (await activeTab()).index).toBe(1);
+});
+
+test("follows the mouse's back and forward buttons over the page and the toolbar", async () => {
+  await navigate(`${server.origin}/index.html`);
+  const page = await waitForPage(browser, (url) => url.endsWith('/index.html'));
+  await page.click('#second');
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture second');
+  await navigate(`${server.origin}/probe.html`);
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture probe');
+  // One page per click: Chromium handles the button over the page, the shell over the toolbar.
+  await clickHistoryButton(page, 'back', { x: 200, y: 200 });
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture second');
+  await clickHistoryButton(browser.shell, 'back', { x: 900, y: 12 });
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture home');
+  await clickHistoryButton(browser.shell, 'forward', { x: 900, y: 12 });
+  await expect.poll(async () => (await activeTab()).title).toBe('Fixture second');
 });
 
 test('keeps web content away from internal APIs and pages', async () => {
