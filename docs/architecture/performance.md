@@ -108,6 +108,8 @@ The reference is a bare Electron app with:
 
 CPU load is the change in `cumulativeCPUUsage` over 60 seconds.
 
+The browser runs with its update check turned off by the `UpdatePolicy` policy (`0`). The first check fetches the update feed 30 to 60 seconds after the start, inside the window, and what it costs depends on the network and on the feed: once the first release was live, the browser's idle load on macOS rose from 0.01 to between 0.13 and 0.23 percentage points above the reference. The check repeats only every four hours, so a 60-second window would weigh it far too much. To measure locally in the same way, set the same policy.
+
 ### Startup marks
 
 The harness will record these marks:
@@ -139,7 +141,7 @@ The harness (`tools/perf/run.ts`) runs in the `perf` job of every pull request o
 
 - **Warm start:** n = 20 after two warm-up rounds, median against the bare reference and, on Linux and Windows, the ceiling. On macOS it gates at 1.75 × bare for now and reports whether the regular budget was met (see [known gaps](#known-gaps)). A median over the budget fails only when a one-sided Mann-Whitney U test (`tools/perf/stats.ts`) shows that the browser's times are significantly larger than the reference times plus the allowed difference (p < 0.01); the job summary shows the p-value. On the 3-core macOS runners the difference to the reference varied between 73 and 152 ms across identical builds, so a median alone was not a reliable gate. Each variant keeps its profile between runs and quits normally, as in real use. The interactive mark is the ready time in the self-test report, taken once the shell has loaded and rendered; the report also carries the marks `main`, `policies`, `ready`, `window`, `settings`, `shell` and `rendered` in milliseconds since process start. After the ready time, the browser and the reference read the timing of their UI page and add it on the same clock: `page.start` (start of the navigation), `page.fetch`, `page.responseEnd`, `page.interactive`, `page.domReady`, `page.domReadyEnd` and `page.loadStart` from Navigation Timing, and in the browser `page.preload` and `page.script`, marks that the shell's preload and its main script set when they start to run. Pages from `app://` and `file://` get no Resource Timing entries, so the marks cannot split the time per file. The job summary shows the medians of all marks in one table, in the order of the browser's start-up, next to those of the reference and with the difference, so it shows in which step the browser loses time.
 - **Memory, idle:** n = 10 after 15 s, median, with the metric per operating system above. On Linux, the harness reads the memory maps of sandboxed processes through `sudo`.
-- **CPU, idle:** one 60-second window per variant, after 15 s.
+- **CPU, idle:** one 60-second window per variant, after 15 s. The `perf` job sets the `UpdatePolicy` policy to `0` through the registry, managed preferences or `/etc/astela/policies/managed/`, and with `--updates-off` the harness reads the browser's log and fails if the update service was not off in every run.
 - **UI JavaScript, preloads and the main start-up path:** sizes of the built bundles.
 - **Unpacked size:** the unpacked package against the Electron distribution.
 
