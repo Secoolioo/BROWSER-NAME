@@ -19,5 +19,6 @@ Get-WinEvent -FilterHashtable @{ LogName = 'Application', 'System'; StartTime = 
   }
 $keep = 'svchost.exe', 'WmiPrvSE.exe', 'conhost.exe', 'pwsh.exe', 'timeout.exe', 'bash.exe', 'sh.exe'
 $stop = @($started | Where-Object { $_.Name -notin $keep })
+if ($env:STOP -ne '1') { '== Listed only'; return }
 '== Stopping: ' + (($stop | ForEach-Object { '{0}/{1}' -f $_.Name, $_.ProcessId }) -join ' ')
 foreach ($p in $stop) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
