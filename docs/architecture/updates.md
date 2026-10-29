@@ -164,6 +164,7 @@ Updates must never destroy data. Every data migration takes a snapshot first, an
 ### Windows NSIS
 
 - NSIS is the default for home users: a per-user installation without administrator rights, for x64 and arm64.
+- Before it installs or uninstalls, the installer closes a running browser of the current user with `tasklist` and `taskkill` (`app/build/installer.nsh`). electron-builder's own check starts PowerShell and queries WMI; on fresh Windows runners that hung for up to 30 minutes, and companies often restrict PowerShell.
 - `nsis` with a separate blockmap is used. In the [validation run](validation.md#signed-update-feed-and-delta-updates), an update of a 113 MB installer downloaded 0.78 MB, so `nsis-web` is not needed.
 - Windows installers ship unsigned for now, so the **first installation** triggers a SmartScreen warning; updates run without it. The solution is Windows code signing (see [code signing](#code-signing)).
 

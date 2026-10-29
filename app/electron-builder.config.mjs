@@ -75,6 +75,8 @@ export default {
     oneClick: true,
     perMachine: false,
     deleteAppDataOnUninstall: false,
+    // Checks for a running browser without PowerShell; see the file.
+    include: 'build/installer.nsh',
   },
   msi: {
     artifactName: `${slug}-windows-\${arch}.\${ext}`,
