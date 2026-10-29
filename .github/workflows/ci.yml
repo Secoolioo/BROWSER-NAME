@@ -320,12 +320,39 @@ jobs:
           sudo apt-get install -y xvfb
           # The unpacked build has no setuid sandbox helper; allow user namespaces instead.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Turn the update check off
+        # The first check fetches the update feed 30 to 60 s after the start, inside the idle
+        # CPU window. The UpdatePolicy policy turns it off the way an administrator would;
+        # the harness checks in the browser's log that it was off.
+        run: |
+          product=$(node -p "require('./brand.json').productName")
+          slug=$(node -p "require('./brand.json').slug")
+          app_id=$(node -p "require('./brand.json').appId")
+          case "$RUNNER_OS" in
+            Linux)
+              sudo mkdir -p "/etc/$slug/policies/managed"
+              echo '{ "UpdatePolicy": 0 }' | sudo tee "/etc/$slug/policies/managed/perf.json" >/dev/null
+              ;;
+            macOS)
+              plist="/Library/Managed Preferences/$app_id.plist"
+              sudo mkdir -p "/Library/Managed Preferences"
+              printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+                '<plist version="1.0"><dict><key>UpdatePolicy</key><integer>0</integer></dict></plist>' |
+                sudo tee "$plist" >/dev/null
+              sudo chmod 644 "$plist"
+              plutil -lint "$plist"
+              ;;
+            Windows)
+              MSYS_NO_PATHCONV=1 reg add "HKLM\\SOFTWARE\\Policies\\$product" /v UpdatePolicy /t REG_DWORD /d 0 /f
+              ;;
+          esac
       - name: Measure against the bare reference
         run: |
           if [ "$RUNNER_OS" = Linux ]; then
-            xvfb-run -a node tools/perf/run.ts --app "$PERF_APP" --out perf.json
+            xvfb-run -a node tools/perf/run.ts --app "$PERF_APP" --out perf.json --updates-off
           else
-            node tools/perf/run.ts --app "$PERF_APP" --out perf.json
+            node tools/perf/run.ts --app "$PERF_APP" --out perf.json --updates-off
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
