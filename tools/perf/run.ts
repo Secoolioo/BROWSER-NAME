@@ -237,10 +237,13 @@ async function measureCpu(variants: readonly Variant[], m: Measurements): Promis
 function startupChecks(m: Measurements): Check[] {
   const browser = median(m.startupMs.browser);
   const bare = median(m.startupMs.bare);
+  // On the 3-core macOS runners the bare reference alone took between 337 and 935 ms, so an
+  // absolute ceiling would judge the runner, not the browser. There it is only reported.
+  const ceilingGates = process.platform !== 'darwin';
   const limit = Math.min(
     bare + budgets.startupExtraMs,
     bare * budgets.startupFactor,
-    budgets.startupCeilingMs,
+    ceilingGates ? budgets.startupCeilingMs : Infinity,
   );
   // The browser exceeds the budget only if its times are significantly larger than the
   // bare times shifted by the allowed difference, not just because its median is.
@@ -250,7 +253,9 @@ function startupChecks(m: Measurements): Check[] {
     {
       metric: 'Warm start, spawn to interactive UI (median)',
       value: `${browser.toFixed(0)} ms (bare ${bare.toFixed(0)} ms, p = ${p.toFixed(3)})`,
-      budget: `≤ ${limit.toFixed(0)} ms`,
+      budget: ceilingGates
+        ? `≤ ${limit.toFixed(0)} ms`
+        : `≤ ${limit.toFixed(0)} ms (ceiling ${budgets.startupCeilingMs} ms reported only)`,
       pass: browser <= limit || p >= budgets.significance,
     },
   ];
