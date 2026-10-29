@@ -59,7 +59,7 @@ const expectedFuses: Readonly<Record<string, 'Enabled' | 'Disabled'>> = {
  * @param args - Arguments.
  */
 function run(command: string, args: readonly string[]): SpawnSyncReturns<string> {
-  console.log(`$ ${command} ${args.join(' ')}`);
+  console.log(`${new Date().toISOString()} $ ${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -109,10 +109,11 @@ function stopBrowser(child: ChildProcess, executable: string): void {
   if (process.platform === 'win32') {
     // Helpers whose browser has exited no longer belong to its process tree, so they are
     // matched by program name.
-    spawnSync('taskkill', ['/F', '/T', '/IM', basename(executable)], {
-      stdio: 'ignore',
+    const kill = spawnSync('taskkill', ['/F', '/T', '/IM', basename(executable)], {
+      encoding: 'utf8',
       timeout: 60_000,
     });
+    console.log(`${new Date().toISOString()} taskkill: ${kill.stdout}${kill.stderr}`);
     return;
   }
   if (child.pid === undefined) return;
@@ -148,6 +149,7 @@ async function selfTest(executable: string, args: readonly string[] = []): Promi
       done(exitCode);
     });
   });
+  console.log(`${new Date().toISOString()} browser exit code ${String(code)}`);
   stopBrowser(child, executable);
   child.stdout.destroy();
   child.stderr.destroy();

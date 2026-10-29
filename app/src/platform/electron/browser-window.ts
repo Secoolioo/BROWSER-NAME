@@ -64,7 +64,8 @@ export class BrowserWindowController implements Disposable, TabViewPort {
       height: 820,
       minWidth: 480,
       minHeight: 320,
-      show: false,
+      // Shown at once in the theme's background color: Chromium lowers the priority of the
+      // renderer of a hidden window, so the shell would load later in one.
       backgroundColor: options.backgroundColor,
     });
     this.shell = new WebContentsView({
@@ -90,10 +91,7 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     this.subscriptions.add(this.tabs.onDidChange(() => this.schedulePublish()));
     this.subscriptions.add(this.tabs);
     this.shell.webContents.on('before-input-event', (event, input) => this.intercept(event, input));
-    this.shell.webContents.once('did-finish-load', () => {
-      this.layout();
-      this.window.show();
-    });
+    this.shell.webContents.once('did-finish-load', () => this.layout());
     this.window.on('resize', () => this.layout());
     this.window.on('closed', () => this.dispose());
     void this.shell.webContents.loadURL(options.shellUrl);

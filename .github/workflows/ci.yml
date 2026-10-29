@@ -142,6 +142,31 @@ jobs:
               formats: 'nsis:*-x64-setup.exe msi:*-x64.msi',
             }
           - {
+              name: windows-x64-split,
+              os: windows-2025,
+              packages: windows-x64,
+              formats: 'nsis:*-x64-setup.exe msi:*-x64.msi',
+              split: true,
+            }
+          - {
+              name: windows-x64-nn,
+              os: windows-2025,
+              packages: windows-x64,
+              formats: 'nsis:*-x64-setup.exe nsis:*-x64-setup.exe',
+            }
+          - {
+              name: windows-x64-mm,
+              os: windows-2025,
+              packages: windows-x64,
+              formats: 'msi:*-x64.msi msi:*-x64.msi',
+            }
+          - {
+              name: windows-x64-mn,
+              os: windows-2025,
+              packages: windows-x64,
+              formats: 'msi:*-x64.msi nsis:*-x64-setup.exe',
+            }
+          - {
               name: windows-arm64,
               os: windows-11-arm,
               packages: windows-arm64,
@@ -154,6 +179,7 @@ jobs:
         shell: bash
     env:
       FORMATS: ${{ matrix.formats }}
+      SPLIT: ${{ matrix.split }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -177,37 +203,21 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
           Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
-      - name: Install, start and remove each package
-        # The tests write to a file, so no process they leave behind can hold this step's
-        # output open. A watchdog ends a hang after 15 minutes and prints the log and the
-        # running processes; GitHub keeps no log of a job that reaches its own timeout.
+      - name: Install, start and remove the first package
         timeout-minutes: 20
-        run: |
-          log="$RUNNER_TEMP/smoke.log"
-          (
-            for entry in $FORMATS; do
-              format="${entry%%:*}"
-              pattern="${entry#*:}"
-              file=$(find "$RUNNER_TEMP/packages" -maxdepth 1 -name "$pattern" | sort | head -1)
-              echo "== $(date -u +%H:%M:%S) $format $file"
-              node tools/package/smoke.ts "$format" "$file" || exit 1
-            done
-          ) >"$log" 2>&1 &
-          tests=$!
-          for _ in $(seq 1 900); do
-            kill -0 "$tests" 2>/dev/null || break
-            sleep 1
-          done
-          if kill -0 "$tests" 2>/dev/null; then
-            cat "$log"
-            echo "::error::The smoke tests did not finish within 15 minutes"
-            if [ "$RUNNER_OS" = Windows ]; then tasklist //v; else ps -ef; fi
-            exit 1
-          fi
-          status=0
-          wait "$tests" || status=$?
-          cat "$log"
-          exit "$status"
+        run: bash .github/diag-smoke.sh first
+      - name: Keep the diagnostics of the first package
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-diag-${{ matrix.name }}
+          path: ${{ runner.temp }}/smoke-first*.log
+      - name: Install, start and remove the other packages
+        timeout-minutes: 20
+        run: bash .github/diag-smoke.sh rest
+      - name: Diagnostic run, not for merging
+        if: always()
+        run: exit 1
       - name: Install and start the rpm on Fedora
         if: matrix.name == 'linux-x64'
         run: |
