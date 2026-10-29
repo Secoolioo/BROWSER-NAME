@@ -278,7 +278,7 @@ The update path for NSIS, AppImage and macOS is implemented:
 
 - **Signed feed** (`app/src/domain/updates/feed.ts`): index and manifests are verified before they are parsed, with the rejection rules above (signature, sequence, expiry, no downgrade), the channel and the version prefix.
 - **Keys:** the public keys are read at build time from `app/build/keys/update-*.pub.pem`. A build without keys cannot verify the feed and therefore never updates. The release keys are added once the repository owner has generated them.
-- **Engine** (`app/src/platform/updates/`): the `SignedFeedProvider` for electron-updater, which loads only when the first check runs. Downloads use the blockmap delta and the SHA-512 from the signed manifest.
+- **Engine** (`app/src/platform/updates/`): the `SignedFeedProvider` for electron-updater. A check reads the signed feed first and loads electron-updater only when it finds an update, so the checks every 4 hours cost one small download and a signature check. Downloads use the blockmap delta and the SHA-512 from the signed manifest.
 - **Service** (`app/src/domain/updates/update-service.ts`): the first check 30–60 seconds after start, then every 4 hours with ±30 minutes of jitter, a retry while offline, and the installation while the browser exits after a normal quit.
 - **Policies:** `UpdatePolicy`, `TargetChannel`, `TargetVersionPrefix`, `UpdateURL` (machine-level only) and `AutoUpdateCheckPeriodMinutes`.
 - **Installation types:** MSI (a per-machine installation under Program Files), deb and rpm turn the in-app updater off. The registry marker described above replaces the path check when the MSI properties land.
