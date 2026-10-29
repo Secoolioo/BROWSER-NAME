@@ -1,4 +1,11 @@
-import { BaseWindow, WebContentsView, type Input, type WebContents } from 'electron';
+import {
+  BaseWindow,
+  WebContentsView,
+  type ContextMenuParams,
+  type Input,
+  type Rectangle,
+  type WebContents,
+} from 'electron';
 import { DisposableStore, toDisposable, type Disposable } from '../../shared/disposable.ts';
 import {
   ShellCommand,
@@ -17,6 +24,20 @@ export interface Insets {
   readonly right: number;
   readonly bottom: number;
   readonly left: number;
+}
+
+/** A view's request for its context menu, with what the menu needs to know about the view. */
+export interface ContextMenuRequest {
+  /** The window that shows the view. */
+  readonly window: BrowserWindowController;
+  /** The tab whose page was clicked; `undefined` for the shell. */
+  readonly tabId: TabId | undefined;
+  /** The view's web contents. */
+  readonly contents: WebContents;
+  /** What was clicked, as Chromium reports it. */
+  readonly params: ContextMenuParams;
+  /** Where the view is in the window, for menus opened with the keyboard. */
+  readonly bounds: Rectangle;
 }
 
 /** Everything a window needs from its environment. */
@@ -38,6 +59,8 @@ export interface BrowserWindowOptions {
   readonly gate: IpcGate;
   readonly router: IpcRouter;
   readonly logger: Logger;
+  /** Shows the context menu of a view; without it, views have none. */
+  readonly onContextMenu?: (request: ContextMenuRequest) => void;
 }
 
 /**
@@ -90,6 +113,7 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     this.subscriptions.add(this.tabs.onDidChange(() => this.schedulePublish()));
     this.subscriptions.add(this.tabs);
     this.shell.webContents.on('before-input-event', (event, input) => this.intercept(event, input));
+    this.forwardContextMenu(this.shell, undefined);
     this.shell.webContents.once('did-finish-load', () => {
       this.layout();
       this.window.show();
@@ -163,6 +187,7 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     contents.on('did-navigate-in-page', sync);
     contents.on('page-title-updated', sync);
     contents.on('before-input-event', (event, input) => this.intercept(event, input));
+    this.forwardContextMenu(view, id);
     this.views.set(id, view);
     this.loadInto(contents, url);
   }
@@ -285,6 +310,19 @@ export class BrowserWindowController implements Disposable, TabViewPort {
       event.preventDefault();
       this.execute(command);
     }
+  }
+
+  private forwardContextMenu(view: WebContentsView, tabId: TabId | undefined): void {
+    const contents = view.webContents;
+    contents.on('context-menu', (_event, params) => {
+      this.options.onContextMenu?.({
+        window: this,
+        tabId,
+        contents,
+        params,
+        bounds: view.getBounds(),
+      });
+    });
   }
 
   private loadInto(contents: WebContents, url: string): void {

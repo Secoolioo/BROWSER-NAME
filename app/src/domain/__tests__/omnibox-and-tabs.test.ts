@@ -84,6 +84,26 @@ describe('TabService', () => {
     ]);
   });
 
+  it('lines up background tabs in the order they open until another tab becomes active', () => {
+    const tabs = new TabService(new FakeViews(), 'about:blank');
+    const ids = (): string[] => tabs.all.map((t) => t.id);
+    const page = tabs.open('https://page.example/');
+    const other = tabs.open('https://other.example/');
+    tabs.activate(page);
+    const a = tabs.open('https://a.example/', { activate: false });
+    const b = tabs.open('https://b.example/', { activate: false });
+    expect(ids()).toEqual([page, a, b, other]);
+    tabs.close(a);
+    const c = tabs.open('https://c.example/', { activate: false });
+    expect(ids()).toEqual([page, b, c, other]);
+    expect(tabs.active?.id).toBe(page);
+    const d = tabs.open('https://d.example/');
+    expect(ids()).toEqual([page, d, b, c, other]);
+    tabs.activate(page);
+    const e = tabs.open('https://e.example/', { activate: false });
+    expect(ids()).toEqual([page, e, d, b, c, other]);
+  });
+
   it('activates the right neighbour on close, then the left one, and keeps one tab', () => {
     const views = new FakeViews();
     const tabs = new TabService(views, 'about:blank');

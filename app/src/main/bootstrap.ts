@@ -18,6 +18,7 @@ import {
   SinkLogger,
   type Logger,
 } from '../kernel/logging/logger.ts';
+import { mayOpenInNewTab } from '../domain/navigation/new-tab.ts';
 import { resolveOmniboxInput } from '../domain/navigation/omnibox.ts';
 import { PolicyService } from '../domain/policy/policy-service.ts';
 import { SettingsService, settingPolicies } from '../domain/settings/settings-service.ts';
@@ -26,6 +27,7 @@ import { AppProtocol, registerAppScheme } from '../platform/electron/app-protoco
 import {
   WindowManager,
   type BrowserWindowController,
+  type ContextMenuRequest,
 } from '../platform/electron/browser-window.ts';
 import { IpcGate } from '../platform/electron/ipc-gate.ts';
 import { IpcRouter } from '../platform/electron/ipc-router.ts';
@@ -168,6 +170,22 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     .then(() => {
       marks['settings'] = Math.round(performance.now());
     });
+  const searchTemplate = async (): Promise<string> => {
+    await settingsLoaded;
+    return settings.get(SearchUrlTemplate);
+  };
+  // Every tab that a page opens, from a script or from the context menu, takes this path.
+  const openFromPage = (url: string, opener: Electron.WebContents, activate = true): void => {
+    if (mayOpenInNewTab(url)) windows.forTab(opener)?.tabs.open(url, { activate });
+  };
+  // The menu code loads with the first context menu, not before the first window.
+  const onContextMenu = (request: ContextMenuRequest): void => {
+    void import('./context-menu.ts')
+      .then(({ popupContextMenu }) =>
+        popupContextMenu(request, { searchTemplate, openTab: openFromPage, logger }),
+      )
+      .catch((error: unknown) => logger.error('The context menu failed', error));
+  };
 
   const windows = new WindowManager({
     shellUrl: layout.devShellUrl ?? 'app://shell/',
@@ -181,13 +199,14 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     gate,
     router,
     logger,
+    onContextMenu,
   });
   guardWebContents(app, {
     isInternal: (contents) => windows.isShell(contents),
-    openInTab: (url, opener) => windows.forTab(opener)?.tabs.open(url),
+    openInTab: openFromPage,
     logger,
   });
-  registerShellHandlers(router, windows, settings, settingsLoaded);
+  registerShellHandlers(router, windows, searchTemplate);
 
   const first = windows.open();
   marks['window'] = Math.round(performance.now());
@@ -259,8 +278,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
 function registerShellHandlers(
   router: IpcRouter,
   windows: WindowManager,
-  settings: SettingsService,
-  settingsLoaded: Promise<void>,
+  searchTemplate: () => Promise<string>,
 ): void {
   const windowOf = (sender: Electron.WebContents): BrowserWindowController => {
     const window = windows.forShell(sender);
@@ -269,10 +287,8 @@ function registerShellHandlers(
     }
     return window;
   };
-  const target = async (input: string): Promise<string | undefined> => {
-    await settingsLoaded;
-    return resolveOmniboxInput(input, settings.get(SearchUrlTemplate))?.url;
-  };
+  const target = async (input: string): Promise<string | undefined> =>
+    resolveOmniboxInput(input, await searchTemplate())?.url;
   router.handle(GetShellState, (_request, { sender }) => windowOf(sender).state());
   router.handle(OpenTab, async ({ input }, { sender }) => {
     const url = input === undefined ? undefined : await target(input);
