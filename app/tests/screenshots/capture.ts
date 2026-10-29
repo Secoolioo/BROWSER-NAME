@@ -10,12 +10,14 @@
  * Writes `screenshot-light.png` and `screenshot-dark.png`.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { launch, waitForPage } from '../e2e/harness.ts';
 
 const scale = 2;
+// A real screenshot has thousands of colors; one with fewer shows an unpainted window.
+const minimumColors = 64;
 const types: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css',
@@ -77,9 +79,20 @@ for (const theme of ['light', 'dark'] as const) {
     if (bounds === undefined) throw new Error('The browser has no window');
     const crop = `${bounds.width * scale}x${bounds.height * scale}+${bounds.x * scale}+${bounds.y * scale}`;
     const file = join(out, `screenshot-${theme}.png`);
-    const result = spawnSync('import', ['-window', 'root', '-crop', crop, '+repage', file]);
-    if (result.status !== 0) throw new Error(`Capturing failed: ${String(result.stderr)}`);
-    process.stdout.write(`Wrote ${file}\n`);
+    // The window can still be unpainted on the display; such an image is taken again and,
+    // if it stays blank, never written as a result.
+    let colors = 0;
+    for (let attempt = 1; attempt <= 4 && colors < minimumColors; attempt += 1) {
+      if (attempt > 1) await new Promise((done) => setTimeout(done, 1500));
+      const result = spawnSync('import', ['-window', 'root', '-crop', crop, '+repage', file]);
+      if (result.status !== 0) throw new Error(`Capturing failed: ${String(result.stderr)}`);
+      colors = Number(spawnSync('identify', ['-format', '%k', file], { encoding: 'utf8' }).stdout);
+    }
+    if (colors < minimumColors) {
+      rmSync(file, { force: true });
+      throw new Error(`The ${theme} screenshot stayed blank (${colors} colors)`);
+    }
+    process.stdout.write(`Wrote ${file} (${colors} colors)\n`);
   } finally {
     await browser.close();
   }
