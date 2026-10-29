@@ -178,15 +178,36 @@ jobs:
           Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - name: Install, start and remove each package
-        # Ends a hang earlier than the job timeout, with the log of the package that hangs.
+        # The tests write to a file, so no process they leave behind can hold this step's
+        # output open. A watchdog ends a hang after 15 minutes and prints the log and the
+        # running processes; GitHub keeps no log of a job that reaches its own timeout.
         timeout-minutes: 20
         run: |
-          for entry in $FORMATS; do
-            format="${entry%%:*}"
-            pattern="${entry#*:}"
-            file=$(find "$RUNNER_TEMP/packages" -maxdepth 1 -name "$pattern" | sort | head -1)
-            node tools/package/smoke.ts "$format" "$file"
+          log="$RUNNER_TEMP/smoke.log"
+          (
+            for entry in $FORMATS; do
+              format="${entry%%:*}"
+              pattern="${entry#*:}"
+              file=$(find "$RUNNER_TEMP/packages" -maxdepth 1 -name "$pattern" | sort | head -1)
+              echo "== $(date -u +%H:%M:%S) $format $file"
+              node tools/package/smoke.ts "$format" "$file" || exit 1
+            done
+          ) >"$log" 2>&1 &
+          tests=$!
+          for _ in $(seq 1 900); do
+            kill -0 "$tests" 2>/dev/null || break
+            sleep 1
           done
+          if kill -0 "$tests" 2>/dev/null; then
+            cat "$log"
+            echo "::error::The smoke tests did not finish within 15 minutes"
+            if [ "$RUNNER_OS" = Windows ]; then tasklist //v; else ps -ef; fi
+            exit 1
+          fi
+          status=0
+          wait "$tests" || status=$?
+          cat "$log"
+          exit "$status"
       - name: Install and start the rpm on Fedora
         if: matrix.name == 'linux-x64'
         run: |
