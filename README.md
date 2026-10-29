@@ -1,17 +1,33 @@
-<p align="center">
-  <strong>Astela</strong><br>
-  A fast, lean and deeply customizable desktop browser for Windows, macOS and Linux.
-</p>
+# Astela
 
-> **Status:** early development. The first release is being prepared in the open; follow the pull requests for progress.
+A desktop browser for Windows, macOS and Linux, built on Chromium through Electron and written in TypeScript. It has no telemetry, no ads, no sponsored tiles, no news feed and needs no account.
 
-## Goals
+> **Status:** early development. The first beta, 0.1.0-beta.1, is being prepared; the [roadmap](docs/roadmap.md) lists every milestone.
 
-- **Fast and lean.** Budgets for start-up time, memory, idle CPU and package size are measured in CI, and any regression fails the build.
-- **Yours to shape.** Workspaces, themes with a live editor, a tab bar on any side of the window, custom shortcuts and a searchable settings page.
-- **Calm and private.** No telemetry, no sponsored content, no nag screens.
-- **Ready for organizations.** Group Policy and Intune templates, macOS configuration profiles, Linux policy files, an MSI package and update control.
-- **Built on Chromium** through Electron, with security updates shipped quickly.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/screenshot-dark.png">
+  <img src="assets/screenshots/screenshot-light.png" alt="Astela showing the architecture overview of its website" width="1280">
+</picture>
+
+## In place
+
+- **Packages** for Windows (NSIS installer, MSI), macOS (disk image) and Linux (AppImage, deb, rpm), for x64 and arm64. CI installs and starts every format on every change.
+- **Signed updates** with delta downloads. After two failed starts, the previous version comes back on its own. deb and rpm packages update through APT and DNF repositories.
+- **Policies** from the Windows registry, macOS configuration profiles and JSON files on Linux, read before the first window opens.
+- **Performance budgets**, measured against a bare Electron app on all three systems for every change: start-up at most 120 ms and 25 % slower than the bare app, idle memory at most 60 MB above it (50 MB on macOS), idle CPU at most 0.5 % of one core. See [performance](docs/architecture/performance.md).
+- **Security fixes** from Electron ship in a patch release within 72 hours, critical ones within 24 hours.
+
+## Planned for 0.1.0
+
+- Workspaces, tab bars on any side of the window, tab groups and layout presets.
+- Themes with an editor, three density levels, custom shortcuts and a searchable settings page.
+- History, bookmarks, downloads, session restore and private windows.
+
+## Documentation
+
+- [Architecture overview](docs/architecture/overview.md) and [decision records](docs/adr/README.md)
+- [Design system](docs/architecture/design-system.md)
+- [Maintainer workflow](docs/maintainers/WORKFLOW.md)
 
 ## Contributing
 
