@@ -42,6 +42,7 @@ import { createPolicyProviders } from '../platform/policy/platform-providers.ts'
 import { SearchUrlTemplate, coreSettings } from './core-settings.ts';
 import { showSandboxHelp } from './sandbox-help.ts';
 import { checkBoot } from './boot.ts';
+import { windowBackground } from './window-background.ts';
 import { runSandboxHelpSmokeTest, runSmokeTest } from './smoke-test.ts';
 import type { UpdateService } from '../domain/updates/update-service.ts';
 
@@ -174,7 +175,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     internalPartition,
     webPartition,
     blankUrl,
-    backgroundColor: '#f7f7f8',
+    backgroundColor: windowBackground(),
     gate,
     router,
     logger,

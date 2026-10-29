@@ -5,6 +5,7 @@ import { InstallSandboxFix, OpenPackagesPage } from '../shared/ipc/sandbox-help-
 import type { Logger } from '../kernel/logging/logger.ts';
 import type { IpcGate } from '../platform/electron/ipc-gate.ts';
 import type { IpcRouter } from '../platform/electron/ipc-router.ts';
+import { windowBackground } from './window-background.ts';
 
 /**
  * AppArmor profile that allows user namespaces for the AppImage's mounted binary, so the
@@ -37,7 +38,13 @@ export function showSandboxHelp(options: {
   readonly router: IpcRouter;
   readonly logger: Logger;
 }): WebContentsView {
-  const window = new BaseWindow({ width: 640, height: 560, resizable: false, show: false });
+  const window = new BaseWindow({
+    width: 640,
+    height: 560,
+    resizable: false,
+    show: false,
+    backgroundColor: windowBackground(),
+  });
   const view = new WebContentsView({
     webPreferences: {
       preload: options.preload,
