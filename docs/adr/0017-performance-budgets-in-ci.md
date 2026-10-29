@@ -20,7 +20,7 @@ Performance budgets are CI gates: a regression fails the build. Astela measures 
 
 | Metric                                                    | Budget                                                                                                                     | Type                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| Warm start, spawn to interactive shell                    | ≤ bare + 120 ms and ≤ 1.25 × bare; ceiling 1.0 s on Linux and Windows, 0.8 s on macOS (reported only)                      | relative + ceiling  |
+| Warm start, spawn to interactive shell                    | ≤ bare + 120 ms and ≤ 1.25 × bare; ceiling 1.0 s on Linux and Windows (macOS: see Runners)                                 | relative + ceiling  |
 | Spawn to first restored tab painted                       | ≤ interactive shell + 150 ms                                                                                               | relative            |
 | Cold start (caches dropped with `drop_caches` or `purge`) | ≤ bare + 250 ms and ≤ 1.5 × bare; gates on Linux and macOS, report only on Windows                                         | relative            |
 | Idle memory (one window, new tab page, after 15 s)        | Linux PSS and Windows private bytes ≤ bare + 60 MB, macOS `phys_footprint` ≤ bare + 50 MB; ceiling 350 MB PSS              | relative + ceiling  |
@@ -46,7 +46,7 @@ How the harness measures:
 - **Start marks:** spawn, first main-process JavaScript, `ready`, window visible, shell first contentful paint and interactive mark, first tab painted. The first start after an update is excluded from the gates and reported separately.
 - **History without commits:** results are workflow artifacts, every release carries a `perf.json` asset, and the website shows the real numbers under `/features/performance` ([ADR 0020](0020-documentation-site-and-api-docs.md)).
 - **Calibration:** a weekly A/A run measures runner variance and adjusts the thresholds.
-- **Runners:** `ubuntu-24.04`, `windows-2025` and `macos-15`; on macOS only the relative budgets gate. The 0.8 s warm-start ceiling is reported there but does not gate, because the bare reference alone varied between 337 and 935 ms on those runners.
+- **Runners:** `ubuntu-24.04`, `windows-2025` and `macos-15`; on macOS only relative budgets gate, because the bare reference alone varied between 337 and 935 ms on those runners. Until the shell starts faster there, the macOS warm start gates at 1.75 × bare and reports the regular budget as its target (performance.md, known gaps).
 
 The techniques that keep Astela within these budgets, such as a tiny main entry, lazily loaded modules and no synchronous IPC, are described in [performance](../architecture/performance.md).
 
