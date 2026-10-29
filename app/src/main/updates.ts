@@ -40,7 +40,8 @@ export interface UpdateDependencies {
 
 /**
  * Creates the update service from policies and the installation. electron-updater is
- * imported only when the first check runs, so it never adds to the start-up time.
+ * imported only when a check finds an update, so it adds nothing to the start-up time or
+ * to the checks that find none.
  * @param deps - Policies, clock, logger and the profile folder.
  */
 export function createUpdateService(deps: UpdateDependencies): UpdateService {
@@ -74,7 +75,10 @@ export function createUpdateService(deps: UpdateDependencies): UpdateService {
     return engine;
   };
   const lazyEngine: UpdateEngine = {
-    check: async () => (await load()).check(),
+    // Most checks find nothing new, and the signed feed alone tells; electron-updater, a
+    // large module, is loaded only to download an update it found.
+    check: async () =>
+      (await feed.findUpdate(query)) === undefined ? undefined : (await load()).check(),
     download: async (onProgress) => (await load()).download(onProgress),
     install: () => engine?.install(),
   };
