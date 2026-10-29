@@ -407,13 +407,35 @@ async function measured(
 
 function medianMarks(runs: readonly Record<string, number>[]): Record<string, number> {
   const names = [...new Set(runs.flatMap((marks) => Object.keys(marks)))];
-  return Object.fromEntries(names.map((name) => [name, median(runs.map((r) => r[name] ?? 0))]));
+  // A run without a mark does not count towards its median.
+  return Object.fromEntries(
+    names.map((name) => [name, median(runs.flatMap((r) => r[name] ?? []))]),
+  );
 }
 
-function markLine(runs: readonly Record<string, number>[]): string {
-  return Object.entries(medianMarks(runs))
-    .map(([name, value]) => `${name} ${value.toFixed(0)} ms`)
-    .join(' · ');
+/**
+ * The median marks of both variants side by side, in the order of the browser's start-up,
+ * with the difference where both have a mark.
+ */
+function marksTable(m: Measurements): string {
+  const browser = medianMarks(m.marks.browser);
+  const bare = medianMarks(m.marks.bare);
+  const at = (name: string): number => browser[name] ?? bare[name] ?? 0;
+  const names = [...new Set([...Object.keys(browser), ...Object.keys(bare)])].toSorted(
+    (a, b) => at(a) - at(b),
+  );
+  const rows = names.map((name) => {
+    const [inBrowser, inBare] = [browser[name], bare[name]].map((ms) =>
+      ms === undefined ? undefined : Math.round(ms),
+    );
+    const difference =
+      inBrowser === undefined || inBare === undefined
+        ? ''
+        : `${inBrowser > inBare ? '+' : ''}${inBrowser - inBare}`;
+    return `| ${name} | ${inBrowser ?? '–'} | ${inBare ?? '–'} | ${difference} |`;
+  });
+  const header = ['| Mark | Browser | Bare | Browser − bare |', '| --- | ---: | ---: | ---: |'];
+  return [...header, ...rows].join('\n');
 }
 
 function table(checks: readonly Check[]): string {
@@ -489,8 +511,9 @@ async function main(): Promise<void> {
     writeFileSync(options.out, `${JSON.stringify(result, null, 2)}\n`);
     const summary =
       `## Performance (${process.platform} ${process.arch})\n\n${table(checks)}\n\n` +
-      `Start-up marks since process start (median): browser ${markLine(m.marks.browser)}; ` +
-      `bare ${markLine(m.marks.bare)}\n`;
+      'Start-up marks in milliseconds since process start (median). The `page.*` marks ' +
+      "come from the UI page's own Navigation Timing and marks.\n\n" +
+      `${marksTable(m)}\n`;
     console.log(summary);
     const stepSummary = process.env['GITHUB_STEP_SUMMARY'];
     if (stepSummary !== undefined) appendFileSync(stepSummary, summary);

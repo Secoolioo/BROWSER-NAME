@@ -71,6 +71,8 @@ const blankUrl = 'about:blank';
 export async function bootstrap(layout: BundleLayout): Promise<void> {
   // Milliseconds since process start at each step, for the self-test report.
   const marks: Record<string, number> = { main: Math.round(performance.now()) };
+  // Wall-clock time at which these milliseconds start, to add the shell page's own timing.
+  const timeOrigin = Date.now() - performance.now();
   registerAppScheme();
   app.setName(brand.productName);
   app.userAgentFallback = cleanUserAgent(app.userAgentFallback);
@@ -201,6 +203,7 @@ export async function bootstrap(layout: BundleLayout): Promise<void> {
     runSmokeTest(first, smokeReport, {
       keepRunning: app.commandLine.hasSwitch('smoke-test-keep-running'),
       marks,
+      timeOrigin,
     });
   }
   logger.info('First window opened', { ms: Math.round(process.uptime() * 1000) });

@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { shellChannels, shellEventChannels } from '../shared/ipc/shell-channels.ts';
 
+// The preload's own code starts here; the self-test reports it as `page.preload`.
+performance.mark('preload');
 const requests = new Set<string>(shellChannels);
 const events = new Set<string>(shellEventChannels);
 
