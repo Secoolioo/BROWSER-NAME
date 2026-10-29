@@ -1,15 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>
-    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#339fee"/>
-      <stop offset="1" stop-color="#274fbe"/>
-    </linearGradient>
-    <mask id="split">
-      <rect width="1024" height="1024" fill="#ffffff"/>
-      <path d="M592 214 452 506l136-14-132 318" fill="none" stroke="#000000" stroke-width="60"
-        stroke-linejoin="round" stroke-linecap="round"/>
-    </mask>
-  </defs>
-  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#surface)"/>
-  <rect x="262" y="262" width="500" height="500" rx="112" fill="#ffffff" mask="url(#split)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#1570d1"/>
+  <g fill="none" stroke="#fff" stroke-width="64">
+    <rect x="264" y="280" width="496" height="464" rx="24"/>
+    <path d="M424 280v464M424 408h336"/>
+  </g>
 </svg>
