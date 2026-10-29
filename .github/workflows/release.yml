@@ -304,6 +304,9 @@ jobs:
       always() && needs.plan.result == 'success' &&
       (needs.plan.outputs.release != 'true' || needs.publish.result == 'success')
     uses: ./.github/workflows/pages.yml # zizmor: ignore[self-repository]
+    # The build job of pages.yml signs with the secrets of the release environment; a called
+    # workflow receives them only when the caller passes its secrets on.
+    secrets: inherit # zizmor: ignore[secrets-inherit]
     permissions:
       contents: read
       pages: write
