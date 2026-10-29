@@ -1,42 +1,41 @@
 ---
 title: Astela
-description: A fast, lean and deeply customizable desktop browser for Windows, macOS and Linux.
+description: A desktop browser for Windows, macOS and Linux, built on Chromium through Electron.
 template: splash
-hero:
-  tagline: A fast, lean and deeply customizable desktop browser for Windows, macOS and Linux. It starts at once, uses little memory, adapts to the way you work, and otherwise leaves you alone.
-  image:
-    file: ../../../../assets/brand/app-icon.svg
-  actions:
-    - text: Read the roadmap
-      link: docs/roadmap/
-      icon: right-arrow
-    - text: Source code
-      link: https://github.com/Secoolioo/astela
-      icon: external
-      variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
 import DownloadButton from '../../components/DownloadButton.astro';
 import Screenshot from '../../components/Screenshot.astro';
+import brand from '../../../../brand.json';
+
+A desktop browser for Windows, macOS and Linux, built on Chromium through Electron. Start-up
+time and memory stay within budgets that every change is measured against. There is no
+telemetry, no ads, no sponsored tiles, no news feed and no account.
 
 <DownloadButton />
 
 <Screenshot />
 
-<CardGrid>
-  <Card title="Fast by design" icon="rocket">
-    Every pull request measures start-up time, memory and CPU against a bare Electron app, and a
-    regression fails the build.
-  </Card>
-  <Card title="Calm" icon="moon">
-    No ads, no sponsored tiles, no feeds and no telemetry. Dialogs only for security decisions.
-  </Card>
-  <Card title="Yours to shape" icon="setting">
-    Workspaces, tab bars on any side, themes, shortcuts and layouts, all built on one settings
-    schema.
-  </Card>
-  <Card title="Ready for organizations" icon="document">
-    Policies for Windows, macOS and Linux, an MSI package, signed updates and package repositories.
-  </Card>
-</CardGrid>
+## In place
+
+- Packages for Windows (NSIS installer, MSI), macOS (disk image) and Linux (AppImage, deb, rpm),
+  for x64 and arm64. Every format is installed and started in CI on every change.
+- Signed updates with delta downloads. After two failed starts, the previous version comes back
+  on its own. deb and rpm packages update through APT and DNF repositories.
+- Policies from the Windows registry, macOS configuration profiles and JSON files on Linux, read
+  before the first window opens.
+- Budgets for start-up time, memory, CPU and bundle size, measured against a bare Electron app on
+  all three systems for every change. See [performance](docs/architecture/performance/).
+- Security fixes from Electron ship in a patch release within 72 hours, critical ones within
+  24 hours.
+
+## Planned for 0.1.0
+
+- Workspaces, tab bars on any side of the window, tab groups and layout presets.
+- Themes with an editor, three density levels, custom shortcuts and a searchable settings page.
+- History, bookmarks, downloads, session restore and private windows.
+
+The [roadmap](docs/roadmap/) lists every milestone; the [architecture](docs/architecture/overview/)
+explains how the browser is built. The source code is on
+
+<a href={`https://github.com/${brand.repository}`}>GitHub</a> under the MPL-2.0.
