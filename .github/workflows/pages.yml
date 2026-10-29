@@ -84,6 +84,14 @@ jobs:
             mkdir -p website/src/data website/public/media
             cp "$RELEASES/releases.json" website/src/data/releases.json
             cp -R "$RELEASES/screenshots" website/public/media/
+            # A release screenshot that came out blank, as the light one of 0.1.0-beta.1 did,
+            # gives way to the repository's screenshot, taken in the release pull request.
+            for theme in light dark; do
+              shot="website/public/media/screenshots/latest/screenshot-$theme.png"
+              if [[ ! -f "$shot" || $(stat -c %s "$shot") -lt 20000 ]]; then
+                cp "assets/screenshots/screenshot-$theme.png" "$shot"
+              fi
+            done
           fi
           pnpm --dir website run build
           mkdir -p "$SITE"
