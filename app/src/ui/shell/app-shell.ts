@@ -26,7 +26,7 @@ export class AppShell extends LitElement {
     }
     [role='tablist'] {
       display: flex;
-      gap: 2px;
+      gap: var(--space-1);
       height: var(--tab-height);
       padding: var(--space-1) var(--space-2) 0;
       overflow-x: auto;
@@ -45,7 +45,6 @@ export class AppShell extends LitElement {
       color: var(--text-2);
       font: inherit;
       text-align: start;
-      transition: background-color var(--motion-fast) ease-out;
     }
     .tab:hover {
       background: var(--surface-hover);
@@ -104,10 +103,10 @@ export class AppShell extends LitElement {
     input {
       flex: 1;
       min-width: 0;
-      height: 30px;
+      height: 28px;
       padding: 0 var(--space-3);
       border: 1px solid var(--border-1);
-      border-radius: var(--radius-2);
+      border-radius: var(--radius-1);
       background: var(--surface-0);
       color: var(--text-1);
       font: inherit;
