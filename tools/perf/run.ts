@@ -5,7 +5,8 @@
  *
  * Usage: `node tools/perf/run.ts --app <packaged executable> [--out perf.json]`
  * Options: `--runs <n>` start-up runs (20), `--memory-runs <n>` (10), `--cpu-seconds <s>`
- * (60) and `--settle-seconds <s>` (15).
+ * (60) and `--settle-seconds <s>` (15). `--updates-off` adds a check that the browser's
+ * update service was off in every run, as the `UpdatePolicy` policy turns it off.
  */
 import type { ChildProcess } from 'node:child_process';
 import {
@@ -23,6 +24,7 @@ import { createRequire } from 'node:module';
 import { cpus, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { FuseV1Options, FuseVersion, flipFuses } from '@electron/fuses';
+import { updateServiceStates } from './browser-log.ts';
 import { mannWhitneyGreater, median } from './stats.ts';
 import { memoryMetric, sampleTree, startTree, stopTree, type TreeSample } from './system.ts';
 
@@ -83,6 +85,7 @@ function parseOptions(args: readonly string[]): {
   memoryRuns: number;
   cpuSeconds: number;
   settleSeconds: number;
+  updatesOff: boolean;
 } {
   const value = (name: string, fallback?: string): string => {
     const index = args.indexOf(`--${name}`);
@@ -97,6 +100,7 @@ function parseOptions(args: readonly string[]): {
     memoryRuns: Number(value('memory-runs', '10')),
     cpuSeconds: Number(value('cpu-seconds', '60')),
     settleSeconds: Number(value('settle-seconds', '15')),
+    updatesOff: args.includes('--updates-off'),
   };
 }
 
@@ -382,6 +386,31 @@ function sizeChecks(distribution: string): Check[] {
 }
 
 /**
+ * With `--updates-off`, checks that the browser's update service was off in every run that
+ * started it. Its first check fetches the update feed 30 to 60 s after the start, inside
+ * the idle CPU window, and what it costs depends on the network and on the feed.
+ */
+function updateChecks(): Check[] {
+  if (!options.updatesOff) return [];
+  const logs = join(profilesDir, 'browser', 'logs');
+  const text = existsSync(logs)
+    ? readdirSync(logs)
+        .filter((name) => /^main(\.\d+)?\.log$/.test(name))
+        .map((name) => readFileSync(join(logs, name), 'utf8'))
+        .join('\n')
+    : '';
+  const states = updateServiceStates(text);
+  return [
+    {
+      metric: 'Update service during the measurements',
+      value: states.length === 0 ? 'not started' : [...new Set(states)].join(', '),
+      budget: 'disabled in every run',
+      pass: states.length > 0 && states.every((state) => state === 'disabled'),
+    },
+  ];
+}
+
+/**
  * Measures a group and checks its budgets; a failing group is measured once more before
  * it fails, as the method allows.
  */
@@ -493,6 +522,7 @@ async function main(): Promise<void> {
         },
         cpuChecks,
       )),
+      ...updateChecks(),
     ];
     const result = {
       platform: process.platform,
