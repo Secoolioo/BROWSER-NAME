@@ -1,5 +1,6 @@
 import type { App, Session, WebContents } from 'electron';
 import type { Logger } from '../../kernel/logging/logger.ts';
+import { mayOpenInNewTab } from '../../domain/navigation/new-tab.ts';
 import { originOf } from './ipc-gate.ts';
 
 /** Permissions that are never granted, not even after a prompt. */
@@ -70,7 +71,7 @@ export function guardWebContents(app: App, options: WebContentsGuardOptions): vo
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event) => event.preventDefault());
     contents.setWindowOpenHandler(({ url }) => {
-      if (!options.isInternal(contents) && /^https?:/i.test(url)) {
+      if (!options.isInternal(contents) && mayOpenInNewTab(url)) {
         options.openInTab(url, contents);
       }
       return { action: 'deny' };

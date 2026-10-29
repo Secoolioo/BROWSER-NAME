@@ -3,9 +3,10 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "../../.tsbuild/main",
-    "types": ["node"]
+    "types": ["node"],
+    "resolveJsonModule": true
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "**/*.json"],
   "references": [
     { "path": "../shared" },
     { "path": "../kernel" },

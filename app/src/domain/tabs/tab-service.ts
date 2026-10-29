@@ -37,7 +37,11 @@ export interface TabViewPort {
 
 /** Options for {@link TabService.open}. */
 export interface OpenTabOptions {
-  /** Whether the new tab becomes the active tab. Defaults to `true`. */
+  /**
+   * Whether the new tab becomes the active tab. Defaults to `true`. Tabs opened in the
+   * background line up after the active tab in the order they open, until another tab
+   * becomes active, so links opened one after another keep their order.
+   */
   readonly activate?: boolean;
 }
 
@@ -57,6 +61,8 @@ const closedTabLimit = 25;
 export class TabService implements Disposable {
   private readonly tabs: Tab[] = [];
   private activeId: TabId | undefined;
+  /** Tabs opened in the background since the active tab became active. */
+  private readonly openedInBackground = new Set<TabId>();
   private readonly closed: string[] = [];
   private nextId = 1;
   private readonly changeEmitter = new Emitter<void>();
@@ -86,7 +92,8 @@ export class TabService implements Disposable {
   }
 
   /**
-   * Opens a tab after the active one.
+   * Opens a tab after the active one, or in the background after the tabs opened there
+   * before it, as Chromium does.
    * @param url - URL to load; defaults to the blank page.
    * @param options - Whether to activate the tab.
    * @returns The new tab's id.
@@ -94,12 +101,13 @@ export class TabService implements Disposable {
   open(url: string = this.blankUrl, options: OpenTabOptions = {}): TabId {
     const id = `t${(this.nextId++).toString(36)}`;
     const tab: Tab = { id, url, title: '', loading: true, canGoBack: false, canGoForward: false };
-    const index = this.activeId === undefined ? this.tabs.length : this.indexOf(this.activeId) + 1;
-    this.tabs.splice(index, 0, tab);
+    const activate = options.activate ?? true;
+    this.tabs.splice(this.insertionIndex(activate), 0, tab);
     this.views.create(id, url);
-    if (options.activate ?? true) {
+    if (activate) {
       this.activate(id);
     } else {
+      this.openedInBackground.add(id);
       this.changeEmitter.fire();
     }
     return id;
@@ -113,6 +121,7 @@ export class TabService implements Disposable {
     this.require(id);
     if (this.activeId !== id) {
       this.activeId = id;
+      this.openedInBackground.clear();
       this.views.show(id);
     }
     this.changeEmitter.fire();
@@ -202,6 +211,21 @@ export class TabService implements Disposable {
       this.views.destroy(tab.id);
     }
     this.changeEmitter.dispose();
+  }
+
+  /** Where a new tab goes: after the active tab and, in the background, its earlier tabs. */
+  private insertionIndex(activate: boolean): number {
+    if (this.activeId === undefined) {
+      return this.tabs.length;
+    }
+    const next = this.indexOf(this.activeId) + 1;
+    if (activate) {
+      return next;
+    }
+    const end = this.tabs.findIndex(
+      (tab, index) => index >= next && !this.openedInBackground.has(tab.id),
+    );
+    return end === -1 ? this.tabs.length : end;
   }
 
   private indexOf(id: TabId): number {

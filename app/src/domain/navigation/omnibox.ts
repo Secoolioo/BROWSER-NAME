@@ -43,6 +43,15 @@ export function resolveOmniboxInput(
   return search(text, searchTemplate);
 }
 
+/**
+ * Builds the URL that searches for a query with the configured search engine.
+ * @param query - The search terms.
+ * @param searchTemplate - Search URL with `%s` for the encoded query.
+ */
+export function searchUrl(query: string, searchTemplate: string): string {
+  return searchTemplate.replace('%s', encodeURIComponent(query));
+}
+
 function search(query: string, template: string): OmniboxTarget {
-  return { kind: 'search', query, url: template.replace('%s', encodeURIComponent(query)) };
+  return { kind: 'search', query, url: searchUrl(query, template) };
 }

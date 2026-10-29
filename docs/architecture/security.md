@@ -196,7 +196,7 @@ The security baseline is implemented in `app/src/platform/electron/` and `app/el
 
 - Every view runs sandboxed with context isolation and without Node integration; tabs have no preload.
 - Every session denies permission requests, permission checks, device access and screen capture by default.
-- `<webview>` is never attached; pages cannot open free windows, and their requests become tabs.
+- `<webview>` is never attached; pages cannot open free windows, and their requests become tabs. A tab that a page opens, by script or from its context menu, can only load an http or https URL.
 - The shell and internal pages cannot leave their `app://` origin; web content can neither navigate to `app://` nor load it, because web sessions answer such requests with 403.
 - All `app://` pages carry the strict Content Security Policy with Trusted Types.
 - Client certificates are never selected automatically.

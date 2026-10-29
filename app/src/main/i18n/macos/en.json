@@ -1,0 +1,17 @@
+{
+  "contextMenu.openLinkInNewTab": "Open Link in New Tab",
+  "contextMenu.copyLinkAddress": "Copy Link Address",
+  "contextMenu.openImageInNewTab": "Open Image in New Tab",
+  "contextMenu.copyImage": "Copy Image",
+  "contextMenu.copyImageAddress": "Copy Image Address",
+  "contextMenu.searchFor": "Search {engine} for “{query}”",
+  "contextMenu.undo": "Undo",
+  "contextMenu.redo": "Redo",
+  "contextMenu.cut": "Cut",
+  "contextMenu.copy": "Copy",
+  "contextMenu.paste": "Paste",
+  "contextMenu.selectAll": "Select All",
+  "contextMenu.back": "Back",
+  "contextMenu.forward": "Forward",
+  "contextMenu.reload": "Reload"
+}

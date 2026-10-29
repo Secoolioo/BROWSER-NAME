@@ -1,0 +1,17 @@
+{
+  "contextMenu.openLinkInNewTab": "Link in neuem &Tab öffnen",
+  "contextMenu.copyLinkAddress": "&Link-Adresse kopieren",
+  "contextMenu.openImageInNewTab": "&Bild in neuem Tab öffnen",
+  "contextMenu.copyImage": "Bild k&opieren",
+  "contextMenu.copyImageAddress": "Bilda&dresse kopieren",
+  "contextMenu.searchFor": "Mit {engine} nach „{query}“ &suchen",
+  "contextMenu.undo": "&Rückgängig machen",
+  "contextMenu.redo": "&Wiederholen",
+  "contextMenu.cut": "&Ausschneiden",
+  "contextMenu.copy": "&Kopieren",
+  "contextMenu.paste": "&Einfügen",
+  "contextMenu.selectAll": "Alles a&uswählen",
+  "contextMenu.back": "&Zurück",
+  "contextMenu.forward": "&Vorwärts",
+  "contextMenu.reload": "&Neu laden"
+}
