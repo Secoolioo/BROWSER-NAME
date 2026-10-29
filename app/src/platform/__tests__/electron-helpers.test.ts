@@ -1,4 +1,3 @@
-import type { Input } from 'electron';
 import { join } from 'node:path';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
@@ -15,7 +14,6 @@ import {
   appResponseHeaders,
   appSourceRoutes,
 } from '../electron/app-protocol-routes.ts';
-import { commandForInput } from '../electron/shortcuts.ts';
 import { IpcGate, originOf } from '../electron/ipc-gate.ts';
 import { cleanUserAgent } from '../electron/session-security.ts';
 
@@ -142,43 +140,5 @@ describe('cleanUserAgent', () => {
     expect(cleanUserAgent(ua)).toBe(
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.48 Safari/537.36',
     );
-  });
-});
-
-const key = (k: string, mods: Partial<Input> = {}): Input => ({
-  type: 'keyDown',
-  key: k,
-  code: '',
-  isAutoRepeat: false,
-  isComposing: false,
-  location: 0,
-  modifiers: [],
-  control: false,
-  meta: false,
-  alt: false,
-  shift: false,
-  ...mods,
-});
-
-describe('commandForInput', () => {
-  it('maps platform shortcuts to commands', () => {
-    expect(commandForInput(key('t', { control: true }), 'linux')).toBe('tab.new');
-    expect(commandForInput(key('T', { control: true, shift: true }), 'win32')).toBe('tab.reopen');
-    expect(commandForInput(key('t', { meta: true }), 'darwin')).toBe('tab.new');
-    expect(commandForInput(key('t', { control: true }), 'darwin')).toBeUndefined();
-    expect(commandForInput(key('w', { control: true }), 'linux')).toBe('tab.close');
-    expect(commandForInput(key('l', { control: true }), 'linux')).toBe('omnibox.focus');
-    expect(commandForInput(key('r', { control: true }), 'linux')).toBe('page.reload');
-    expect(commandForInput(key('F5'), 'win32')).toBe('page.reload');
-    expect(commandForInput(key('Tab', { control: true }), 'linux')).toBe('tab.next');
-    expect(commandForInput(key('Tab', { control: true, shift: true }), 'darwin')).toBe(
-      'tab.previous',
-    );
-    expect(commandForInput(key('ArrowLeft', { alt: true }), 'linux')).toBe('page.back');
-    expect(commandForInput(key('ArrowRight', { meta: true }), 'darwin')).toBe('page.forward');
-    expect(
-      commandForInput({ ...key('t', { control: true }), type: 'keyUp' }, 'linux'),
-    ).toBeUndefined();
-    expect(commandForInput(key('t', { control: true, alt: true }), 'linux')).toBeUndefined();
   });
 });

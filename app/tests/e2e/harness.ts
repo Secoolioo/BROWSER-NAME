@@ -257,23 +257,42 @@ export async function shellState(shell: Page): Promise<ShellState> {
  * @param browser - The running browser.
  * @param keyCode - Electron key code, such as `T`.
  * @param modifiers - Modifier names; `primary` is Cmd on macOS and Ctrl elsewhere.
+ * @param target - Start of the URL of the view that gets the key; the shell by default.
  */
 export async function pressNative(
   browser: Browser,
   keyCode: string,
-  modifiers: readonly ('primary' | 'shift' | 'alt')[] = [],
+  modifiers: readonly ('primary' | 'control' | 'shift' | 'alt')[] = [],
+  target = 'app://shell',
 ): Promise<void> {
   const mapped = modifiers.map((m) =>
     m === 'primary' ? (process.platform === 'darwin' ? 'meta' : 'control') : m,
   );
   await browser.main.evaluate(
-    ({ webContents }, { keyCode: key, mapped: mods }) => {
-      const shell = webContents
-        .getAllWebContents()
-        .find((w) => w.getURL().startsWith('app://shell'));
-      shell?.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers: mods });
-      shell?.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers: mods });
+    ({ webContents }, { keyCode: key, mapped: mods, target: prefix }) => {
+      const view = webContents.getAllWebContents().find((w) => w.getURL().startsWith(prefix));
+      view?.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers: mods });
+      view?.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers: mods });
     },
-    { keyCode, mapped },
+    { keyCode, mapped, target },
   );
+}
+
+/**
+ * Clicks the back or forward button of a mouse through the DevTools protocol, so the page
+ * gets the mouse events of a real button. Playwright's mouse has no such buttons.
+ * @param page - The page under the pointer.
+ * @param button - The button.
+ * @param point - Where the pointer is, in CSS pixels of the page.
+ */
+export async function clickHistoryButton(
+  page: Page,
+  button: 'back' | 'forward',
+  point: { readonly x: number; readonly y: number },
+): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+  for (const type of ['mousePressed', 'mouseReleased'] as const) {
+    await session.send('Input.dispatchMouseEvent', { type, ...point, button, clickCount: 1 });
+  }
+  await session.detach();
 }

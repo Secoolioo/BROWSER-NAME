@@ -272,6 +272,13 @@ export class BrowserWindowController implements Disposable, TabViewPort {
     }
   }
 
+  /**
+   * Runs the shortcut of a key press in the shell or in a tab before the view sees the key.
+   * The mouse's back and forward buttons need nothing here: Chromium navigates the page
+   * under the pointer itself, and the shell passes them on to the active tab. The window's
+   * `app-command` event reports them as well and stays unused, or one click would go back
+   * two pages.
+   */
   private intercept(event: { preventDefault(): void }, input: Input): void {
     const command = commandForInput(input, process.platform);
     if (command !== undefined) {
