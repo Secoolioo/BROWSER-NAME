@@ -13,6 +13,7 @@
     "lint:md": "markdownlint-cli2",
     "check:commits": "node tools/ci/check-commits.ts",
     "release:prepare": "node tools/release/prepare.ts",
+    "screenshots": "node tools/screenshots/take.ts",
     "typecheck": "tsc --build app tools",
     "lint": "oxlint --type-aware --deny-warnings",
     "test": "pnpm --dir app exec vitest run",
