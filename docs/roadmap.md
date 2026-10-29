@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Status:** this roadmap is a plan. Nothing has been released yet, and none of the features below is available today. Scope and order may change as the work progresses.
+> **Status:** `0.1.0-beta.1`, the walking skeleton below, is the first release. Everything after it is still a plan; scope and order may change as the work progresses.
 
 ## Vision
 
